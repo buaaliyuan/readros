@@ -47,6 +47,7 @@ XmlRpcDispatch::~XmlRpcDispatch()
 void
 XmlRpcDispatch::addSource(XmlRpcSource* source, unsigned mask)
 {
+	//添加到sourcelist，source提供了handleevent接口，并且指明了监控的事件
   _sources.push_back(MonitoredSource(source, mask));
 }
 
@@ -70,6 +71,7 @@ XmlRpcDispatch::setSourceEvents(XmlRpcSource* source, unsigned eventMask)
   for (SourceList::iterator it=_sources.begin(); it!=_sources.end(); ++it)
     if (it->getSource() == source)
     {
+		//修改source想监控的事件
       it->getMask() = eventMask;
       break;
     }
@@ -78,6 +80,7 @@ XmlRpcDispatch::setSourceEvents(XmlRpcSource* source, unsigned eventMask)
 
 
 // Watch current set of sources and process events
+//核心处理代码
 void
 XmlRpcDispatch::work(double timeout)
 {
@@ -101,6 +104,7 @@ XmlRpcDispatch::work(double timeout)
   _inWork = true;
   int timeout_ms = static_cast<int>(floor(timeout * 1000.));
 
+  //_sources存储了所有被poll的socket文件描述符
   // Only work while there is something to monitor
   while (_sources.size() > 0) {
 
@@ -116,12 +120,14 @@ XmlRpcDispatch::work(double timeout)
       fds[i].fd = sources[i]->getfd();
       fds[i].revents = 0; // some platforms may not clear this in poll()
       fds[i].events = 0;
+	  //指定要监控的事件
       if (it->getMask() & ReadableEvent) fds[i].events |= POLLIN_REQ;
       if (it->getMask() & WritableEvent) fds[i].events |= POLLOUT_REQ;
       if (it->getMask() & Exception) fds[i].events |= POLLEX_REQ;
     }
 
     // Check for events
+	//poll非阻塞io事件
     int nEvents = poll(&fds[0], source_cnt, (timeout_ms < 0) ? -1 : timeout_ms);
 
     if (nEvents < 0)
@@ -146,6 +152,8 @@ XmlRpcDispatch::work(double timeout)
       bool readable = (pfd.events & POLLIN_REQ) == POLLIN_REQ;
       bool writable = (pfd.events & POLLOUT_REQ) == POLLOUT_REQ;
       bool oob = (pfd.events & POLLEX_REQ) == POLLEX_REQ;
+	  
+	  //调用回调函数
       if (readable && (pfd.revents & POLLIN_CHK))
         newMask &= src->handleEvent(ReadableEvent);
       if (writable && (pfd.revents & POLLOUT_CHK))
@@ -159,9 +167,11 @@ XmlRpcDispatch::work(double timeout)
       SourceList::iterator thisIt;
       for (thisIt = _sources.begin(); thisIt != _sources.end(); thisIt++)
       {
-        if(thisIt->getSource() == src)
+        if(thisIt->getSource() == src)//没有被删除
           break;
       }
+	  
+	  //观测列表中已经删除
       if(thisIt == _sources.end())
       {
         XmlRpcUtil::error("Error in XmlRpcDispatch::work: couldn't find source iterator");
@@ -169,15 +179,20 @@ XmlRpcDispatch::work(double timeout)
       }
 
       if ( ! newMask) {
+		//没有继续添加监控事件则删除从监控列表中
         _sources.erase(thisIt);  // Stop monitoring this one
-        if ( ! src->getKeepOpen())
+        if ( ! src->getKeepOpen()){
+		  //如果不保持开启，则关闭socket
           src->close();
+		}
       } else if (newMask != (unsigned) -1) {
+		//如果监控mask不是FFFF，也不是空，则有监控需求
         thisIt->getMask() = newMask;
       }
     }
 
     // Check whether to clear all sources
+	//清空所有被监控的socket
     if (_doClear)
     {
       SourceList closeList = _sources;
@@ -191,6 +206,7 @@ XmlRpcDispatch::work(double timeout)
     }
 
     // Check whether end time has passed
+	//如果超时就提前退出循环
     if (0 <= _endTime && getTime() > _endTime)
       break;
   }

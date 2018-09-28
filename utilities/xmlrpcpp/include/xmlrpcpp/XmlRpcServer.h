@@ -40,6 +40,7 @@ namespace XmlRpc {
 
 
   //! A class to handle XML RPC requests
+  //用来处理xmlrpc请求
   class XMLRPCPP_DECL XmlRpcServer : public XmlRpcSource {
   public:
     //! Create a server object.
@@ -51,25 +52,32 @@ namespace XmlRpc {
     void enableIntrospection(bool enabled=true);
 
     //! Add a command to the RPC server
+	//添加一个xmlrpc方法到服务器中
     void addMethod(XmlRpcServerMethod* method);
 
     //! Remove a command from the RPC server
+	//删除一个xmlrpc方法
     void removeMethod(XmlRpcServerMethod* method);
 
     //! Remove a command from the RPC server by name
+	//删除xmlrpc方法
     void removeMethod(const std::string& methodName);
 
     //! Look up a method by name
+	//查找一个rpc方法
     XmlRpcServerMethod* findMethod(const std::string& name) const;
 
     //! Create a socket, bind to the specified port, and
     //! set it in listen mode to make it available for clients.
+	//创建一个socket，绑定到特定的port，监听到来的客户端
     bool bindAndListen(int port, int backlog = 5);
 
     //! Process client requests for the specified time
+	//处理客户端
     void work(double msTime);
 
     //! Temporarily stop processing client requests and exit the work() method.
+	//暂时停止处理客户端请求
     void exit();
 
     //! Close all connections with clients and the socket file descriptor
@@ -84,6 +92,7 @@ namespace XmlRpc {
     virtual unsigned handleEvent(unsigned eventType);
 
     //! Remove a connection from the dispatcher
+	//删除connection
     virtual void removeConnection(XmlRpcServerConnection*);
 
     inline int get_port() { return _port; }
@@ -93,21 +102,25 @@ namespace XmlRpc {
   protected:
 
     //! Accept a client connection request
+	//接受一个请求
     virtual unsigned acceptConnection();
 
     //! Create a new connection object for processing requests from a specific client.
     virtual XmlRpcServerConnection* createConnection(int socket);
 
     //! Count number of free file descriptors
+	//计算未被使用的fd？？
     int countFreeFDs();
 
     // Whether the introspection API is supported by this server
     bool _introspectionEnabled;
 
     // Event dispatcher
+	//事件分发器
     XmlRpcDispatch _disp;
 
     // Collection of methods. This could be a set keyed on method name if we wanted...
+	//存储了注册到该服务器下的rpc方法
     typedef std::map< std::string, XmlRpcServerMethod* > MethodMap;
     MethodMap _methods;
 
@@ -118,6 +131,7 @@ namespace XmlRpc {
     int _port;
 
     // Flag indicating that accept had an error and needs to be retried.
+	//accept出现错误
     bool _accept_error;
     // If we cannot accept(), retry after this many seconds. Hopefully there
     // will be more free file descriptors later.

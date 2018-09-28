@@ -21,7 +21,7 @@ namespace XmlRpc {
 
   //! RPC method arguments and results are represented by Values
   //   should probably refcount them...
-  class XMLRPCPP_DECL XmlRpcValue {
+  class XMLRPCPP_DECL XmlRpcValue {//
   public:
 
 
@@ -31,16 +31,16 @@ namespace XmlRpc {
       TypeInt,
       TypeDouble,
       TypeString,
-      TypeDateTime,
-      TypeBase64,
-      TypeArray,
-      TypeStruct
+      TypeDateTime,//时间
+      TypeBase64,//？？
+      TypeArray,//数组
+      TypeStruct//结构体
     };
 
     // Non-primitive types
     typedef std::vector<char> BinaryData;
-    typedef std::vector<XmlRpcValue> ValueArray;
-    typedef std::map<std::string, XmlRpcValue> ValueStruct;
+    typedef std::vector<XmlRpcValue> ValueArray;//混合类型数组
+    typedef std::map<std::string, XmlRpcValue> ValueStruct;//混合类型结构
     typedef ValueStruct::iterator iterator;
 
 
@@ -87,6 +87,7 @@ namespace XmlRpc {
     bool operator==(XmlRpcValue const& other) const;
     bool operator!=(XmlRpcValue const& other) const;
 
+	//转换函数
     operator bool&()          { assertTypeOrInvalid(TypeBoolean); return _value.asBool; }
     operator int&()           { assertTypeOrInvalid(TypeInt); return _value.asInt; }
     operator double&()        { assertTypeOrInvalid(TypeDouble); return _value.asDouble; }

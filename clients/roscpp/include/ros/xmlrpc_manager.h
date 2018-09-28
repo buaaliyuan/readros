@@ -144,8 +144,8 @@ private:
   boost::mutex xmlrpc_call_mutex_;
 #endif
   XmlRpc::XmlRpcServer server_;
-  typedef std::vector<CachedXmlRpcClient> V_CachedXmlRpcClient;
-  V_CachedXmlRpcClient clients_;
+  typedef std::vector<CachedXmlRpcClient> V_CachedXmlRpcClient;//多使用using
+  V_CachedXmlRpcClient clients_;//manager中管理的所有客户端
   boost::mutex clients_mutex_;
 
   bool shutting_down_;

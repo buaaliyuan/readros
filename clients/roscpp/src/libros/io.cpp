@@ -312,6 +312,7 @@ pollfd_vector_ptr poll_sockets(int epfd, socket_pollfd *fds, nfds_t nfds, int ti
 	if (fd_cnt < 0)
 	{
 	// EINTR means that we got interrupted by a signal, and is not an error
+		//一般阻塞读写时都需要处理中断信号，这种情况不能算是错误，忽略接下来的处理，继续下次循环
 		if(errno != EINTR) {
 			ROS_ERROR("Error in epoll_wait! %s", strerror(errno));
 			ofds.reset();
@@ -319,7 +320,7 @@ pollfd_vector_ptr poll_sockets(int epfd, socket_pollfd *fds, nfds_t nfds, int ti
 	}
 	else
 	{
-		ofds.reset(new std::vector<socket_pollfd>);
+		ofds.reset(new std::vector<socket_pollfd>);//返回传参数利用智能指针
 		for (int i = 0; i < fd_cnt; i++)
 		{
 			socket_pollfd pfd;

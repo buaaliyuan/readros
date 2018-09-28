@@ -35,6 +35,7 @@ namespace ros
 
 const PollManagerPtr& PollManager::instance()
 {
+  //返回常量引用的智能指针
   static PollManagerPtr poll_manager = boost::make_shared<PollManager>();
   return poll_manager;
 }
@@ -60,6 +61,8 @@ void PollManager::shutdown()
   if (shutting_down_) return;
 
   shutting_down_ = true;
+  
+  //判断是否在同一个线程结束自己，防止死锁
   if (thread_.get_id() != boost::this_thread::get_id())
   {
     thread_.join();
@@ -77,14 +80,16 @@ void PollManager::threadFunc()
   {
     {
       boost::recursive_mutex::scoped_lock lock(signal_mutex_);
+	  //调用绑定的槽函数
       poll_signal_();
     }
-
+	
+	//可实现尽快退出
     if (shutting_down_)
     {
       return;
     }
-
+	//调用poll的回调函数
     poll_set_.update(100);
   }
 }

@@ -81,9 +81,10 @@ void
 XmlRpcClient::close()
 {
   XmlRpcUtil::log(4, "XmlRpcClient::close: fd %d.", getfd());
-  _connectionState = NO_CONNECTION;
+  _connectionState = NO_CONNECTION;//保持状态
   _disp.exit();
   _disp.removeSource(this);
+  //父类关闭
   XmlRpcSource::close();
 }
 
@@ -116,14 +117,17 @@ XmlRpcClient::execute(const char* method, XmlRpcValue const& params, XmlRpcValue
   _sendAttempts = 0;
   _isFault = false;
 
-  if ( ! setupConnection())
+  if ( ! setupConnection())//设置连接，为写入请求，也就是发送请求做好准备
     return false;
 
-  if ( ! generateRequest(method, params))
+  if ( ! generateRequest(method, params))//生成xml形式的请求格式
     return false;
 
-  result.clear();
+  result.clear();//	清空之前的返回结果
+  
+  
   double msTime = -1.0;   // Process until exit is called
+  //开始阻塞调用
   _disp.work(msTime);
 
   if (_connectionState != IDLE || ! parseResponse(result))
@@ -160,7 +164,7 @@ XmlRpcClient::executeNonBlock(const char* method, XmlRpcValue const& params)
 
   if ( ! generateRequest(method, params))
     return false;
-
+//异步调用的话结果如何获得
   return true;
 }
 
@@ -190,9 +194,11 @@ XmlRpcClient::executeCheckDone(XmlRpcValue& result)
 
 // XmlRpcSource interface implementation
 // Handle server responses. Called by the event dispatcher during execute.
+//分发器最终会根据读或者写请求回调到这个函数中
 unsigned
 XmlRpcClient::handleEvent(unsigned eventType)
 {
+//如果发生异常处理
   if (eventType == XmlRpcDispatch::Exception)
   {
     if (_connectionState == WRITE_REQUEST && _bytesWritten == 0)
@@ -205,22 +211,35 @@ XmlRpcClient::handleEvent(unsigned eventType)
     return 0;
   }
 
+  //写入请求
   if (_connectionState == WRITE_REQUEST)
     if ( ! writeRequest()) return 0;
 
+//读取服务器返回的header，用以确定将来读取respoonse的长度
   if (_connectionState == READ_HEADER)
     if ( ! readHeader()) return 0;
-
+//读取响应体
   if (_connectionState == READ_RESPONSE)
     if ( ! readResponse()) return 0;
 
   // This should probably always ask for Exception events too
   return (_connectionState == WRITE_REQUEST) 
         ? XmlRpcDispatch::WritableEvent : XmlRpcDispatch::ReadableEvent;
+ 
+ //整个流程为：1.处于writeRequest状态，生成请求xml，发送请求（可能分多次），发送成功切换为readHeader状态。期间出现错误close
+ //2.读取header（可能分多次），解析出响应体的长度，转换为readResponse状态。期间出现错误close
+ //3.读取response（可能分多次），需要根据第二部的长度来获取
+ 
+ //注意：
+ //每次用的socket可能不是一个socket，如果上次断开socket就会创建并建立连接
+ //不同状态的切换实现了一个类似与状态机的过程，这个过程对于客户端来说很重要
+ //客户端实现了不同步骤的具体做的事情，而事件分发器则驱动这些状态变化进行
+ 
 }
 
 
 // Create the socket connection to the server if necessary
+//创建连接到server的connection
 bool
 XmlRpcClient::setupConnection()
 {
@@ -229,16 +248,20 @@ XmlRpcClient::setupConnection()
     close();
 
   _eof = false;
+  //如果本来就连接好了就不用重新建立连接，每个客户端维持一个连接状态
   if (_connectionState == NO_CONNECTION)
-    if (! doConnect()) 
-      return false;
+	  if (! doConnect()) {//创建socket，设置非阻塞，连接服务器
+		return false;
+	  }
 
   // Prepare to write the request
+  //准备写请求状态
   _connectionState = WRITE_REQUEST;
-  _bytesWritten = 0;
+  _bytesWritten = 0;//初始化已经写入变量
 
   // Notify the dispatcher to listen on this source (calls handleEvent when the socket is writable)
-  _disp.removeSource(this);       // Make sure nothing is left over
+  _disp.removeSource(this);       // Make sure nothing is left over去除上次留在分发其中的客户端
+  //将自己添加到分发器中
   _disp.addSource(this, XmlRpcDispatch::WritableEvent | XmlRpcDispatch::Exception);
 
   return true;
@@ -278,6 +301,7 @@ XmlRpcClient::doConnect()
 }
 
 // Encode the request to call the specified method with the specified parameters into xml
+//将请求转换为xml格式
 bool
 XmlRpcClient::generateRequest(const char* methodName, XmlRpcValue const& params)
 {
@@ -311,7 +335,7 @@ XmlRpcClient::generateRequest(const char* methodName, XmlRpcValue const& params)
   XmlRpcUtil::log(4, "XmlRpcClient::generateRequest: header is %d bytes, content-length is %d.", 
                   header.length(), body.length());
 
-  _request = header + body;
+  _request = header + body;//请求包括两个部分一个是header一个是body
   return true;
 }
 
@@ -319,6 +343,13 @@ XmlRpcClient::generateRequest(const char* methodName, XmlRpcValue const& params)
 std::string
 XmlRpcClient::generateHeader(size_t length) const
 {
+  //POST "uri" HTTP/1.1
+  //User-Agent: "XMLRPC++ 0.7"
+  //Host: "host:port"
+  //Content-Type: text/xml
+  //Content-length: len
+  //
+  //
   std::string header = 
     "POST " + _uri + " HTTP/1.1\r\n"
     "User-Agent: ";
@@ -347,6 +378,7 @@ XmlRpcClient::writeRequest()
   if ( ! XmlRpcSocket::nbWrite(this->getfd(), _request, &_bytesWritten)) {
     XmlRpcUtil::error("Error in XmlRpcClient::writeRequest: write error (%s).",XmlRpcSocket::getErrorMsg().c_str());
     // If the write fails, we had an unrecoverable error. Close the socket.
+	//如果写入请求遇到了错误，则关闭连接
     close();
     return false;
   }
@@ -354,13 +386,15 @@ XmlRpcClient::writeRequest()
   XmlRpcUtil::log(3, "XmlRpcClient::writeRequest: wrote %d of %d bytes.", _bytesWritten, _request.length());
 
   // Wait for the result
+  //可能需要多次写入
   if (_bytesWritten == int(_request.length())) {
     _header = "";
     _response = "";
-    _connectionState = READ_HEADER;
+    _connectionState = READ_HEADER;//写入完成，客户端切换到读取header模式
   } else {
     // On partial write, remove the portion of the output that was written from
     // the request buffer.
+	//如果只是部分请求已经写入，则去除已经写入的部分内容，下次继续写入
     _request = _request.substr(_bytesWritten);
     _bytesWritten = 0;
   }
@@ -383,6 +417,7 @@ XmlRpcClient::readHeader()
       XmlRpcSource::close();
       _connectionState = NO_CONNECTION;
       _eof = false;
+	  //重新连接
       return setupConnection();
     }
 
@@ -402,6 +437,7 @@ XmlRpcClient::readHeader()
   char *bp = 0;                       // Start of body
   char *lp = 0;                       // Start of content-length value
 
+  //查找头的一些属性
   for (char *cp = hp; (bp == 0) && (cp < ep); ++cp) {
     if ((ep - cp > 16) && (strncasecmp(cp, "Content-length: ", 16) == 0))
       lp = cp + 16;
@@ -412,6 +448,7 @@ XmlRpcClient::readHeader()
   }
 
   // If we haven't gotten the entire header yet, return (keep reading)
+  //没有找到继续读
   if (bp == 0) {
     if (_eof)          // EOF in the middle of a response is an error
     {
@@ -430,7 +467,7 @@ XmlRpcClient::readHeader()
     close();
     return false;   // We could try to figure it out by parsing as we read, but for now...
   }
-
+//解析得到contentlength
   _contentLength = atoi(lp);
   if (_contentLength <= 0) {
     XmlRpcUtil::error("Error in XmlRpcClient::readHeader: Invalid Content-length specified (%d).", _contentLength);
@@ -462,14 +499,18 @@ XmlRpcClient::readResponse()
       close();
       return false;
     }
-    _response += buff;
+    _response += buff;//组成完整的response
 
     // If we haven't gotten the entire _response yet, return (keep reading)
+	//长度不够继续读取
     if (int(_response.length()) < _contentLength) {
+	//随时检测eof
       if (_eof) {
         XmlRpcUtil::error("Error in XmlRpcClient::readResponse: EOF while reading response");
         // nbRead returned an eof, indicating that the socket is disconnected.
+		//eof表示socket断开连接
         // close it and stop monitoring this client.
+		//关闭这个客户端
         close();
         return false;
       }

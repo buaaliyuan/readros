@@ -23,9 +23,11 @@ namespace XmlRpc {
   class XmlRpcValue;
 
   //! A class to send XML RPC requests to a server and return the results.
+  //向服务器发出xml请求并获得返回值
   class XMLRPCPP_DECL XmlRpcClient : public XmlRpcSource {
   public:
     // Static data
+	  ///使用静态字符串
     static const char REQUEST_BEGIN[];
     static const char REQUEST_END_METHODNAME[];
     static const char PARAMS_TAG[];
@@ -87,6 +89,7 @@ namespace XmlRpc {
     virtual bool parseResponse(XmlRpcValue& result);
 
     // Possible IO states for the connection
+	//client当前的状态
     enum ClientConnectionState { NO_CONNECTION, CONNECTING, WRITE_REQUEST, READ_HEADER, READ_RESPONSE, IDLE };
     ClientConnectionState _connectionState;
 
@@ -107,27 +110,34 @@ namespace XmlRpc {
     std::string _response;
 
     // Number of times the client has attempted to send the request
+	//client常识发送请求的次数
     int _sendAttempts;
 
     // NOTE(austin): Having multiple variables that imply that the fd is valid
     //               smells funny.
     // Number of bytes of the request that have been written to the socket so far
+	//已经写入socket的数据量
     int _bytesWritten;
 
     // True if we are currently executing a request. If you want to multithread,
     // each thread should have its own client.
+	//
     bool _executing;
 
     // True if the server closed the connection
+	//服务器关闭了连接为true
     bool _eof;
 
     // True if a fault response was returned by the server
+	//响应如果为false则为true
     bool _isFault;
 
     // Number of bytes expected in the response body (parsed from response header)
+	//期望返回的数据量
     int _contentLength;
 
     // Event dispatcher
+	//事件分发器
     XmlRpcDispatch _disp;
 
   };	// class XmlRpcClient

@@ -80,7 +80,7 @@ bool PollSet::addSocket(int fd, const SocketUpdateFunc& update_func, const Trans
       ROSCPP_LOG_DEBUG("PollSet: Tried to add duplicate fd [%d]", fd);
       return false;
     }
-
+	//添加到系统监控的列表中
     add_socket_to_watcher(epfd_, fd);
 
     sockets_changed_ = true;
@@ -137,6 +137,7 @@ bool PollSet::addEvents(int sock, int events)
 
   it->second.events_ |= events;
 
+	//标示该描述符事件改变
   set_events_on_socket(epfd_, sock, it->second.events_);
 
   sockets_changed_ = true;
@@ -185,9 +186,11 @@ void PollSet::signal()
 
 void PollSet::update(int poll_timeout)
 {
+  //为了poll准备数据结构
   createNativePollset();
 
   // Poll across the sockets we're servicing
+  //对于平台相关的函数需要进行可移植封装，公共逻辑不必封装
   boost::shared_ptr<std::vector<socket_pollfd> > ofds = poll_sockets(epfd_, &ufds_.front(), ufds_.size(), poll_timeout);
   if (!ofds)
   {
@@ -203,12 +206,13 @@ void PollSet::update(int poll_timeout)
       TransportPtr transport;
       int events = 0;
 
-      if (revents == 0)
+      if (revents == 0)//没有需要处理的事件
       {
         continue;
       }
       {
         boost::mutex::scoped_lock lock(socket_info_mutex_);
+		//socket_info_存储了所有需要监控的文件描述符，由于在poll中使用的是另外一个数据结构，在poll的期间这个socket_info_可能有改动，多线程
         M_SocketInfo::iterator it = socket_info_.find(fd);
         // the socket has been entirely deleted
         if (it == socket_info_.end())
@@ -219,6 +223,7 @@ void PollSet::update(int poll_timeout)
         const SocketInfo& info = it->second;
 
         // Store off the function and transport in case the socket is deleted from another thread
+		//这样复制出来可以减少锁区域，提高并发度
         func = info.func_;
         transport = info.transport_;
         events = info.events_;
@@ -240,6 +245,7 @@ void PollSet::update(int poll_timeout)
           // but which is actually referring to the previous fd with the same #.  If this is the case,
           // we ignore the first instance of one of these errors.  If it's a real error we'll
           // hit it again next time through.
+		  //该socket有错误事件，并且不处在just_deleted_列表中
           boost::mutex::scoped_lock lock(just_deleted_mutex_);
           if (std::find(just_deleted_.begin(), just_deleted_.end(), fd) != just_deleted_.end())
           {
@@ -247,7 +253,7 @@ void PollSet::update(int poll_timeout)
           }
         }
 
-        if (!skip)
+        if (!skip)//调用回调函数
         {
           func(revents & (events|POLLERR|POLLHUP|POLLNVAL));
         }
@@ -264,7 +270,7 @@ void PollSet::createNativePollset()
 {
   boost::mutex::scoped_lock lock(socket_info_mutex_);
 
-  if (!sockets_changed_)
+  if (!sockets_changed_)//改变之后才重新生成
   {
     return;
   }

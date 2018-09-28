@@ -31,12 +31,13 @@ const std::string XmlRpcServerConnection::FAULTSTRING = "faultString";
 
 
 // The server delegates handling client requests to a serverConnection object.
+//负责处理与客户端的交互
 XmlRpcServerConnection::XmlRpcServerConnection(int fd, XmlRpcServer* server, bool deleteOnClose /*= false*/) :
   XmlRpcSource(fd, deleteOnClose)
 {
   XmlRpcUtil::log(2,"XmlRpcServerConnection: new socket %d.", fd);
   _server = server;
-  _connectionState = READ_HEADER;
+  _connectionState = READ_HEADER;//先读取客户端发来的header
   _contentLength = 0;
   _bytesWritten = 0;
   _keepAlive = true;
@@ -46,7 +47,7 @@ XmlRpcServerConnection::XmlRpcServerConnection(int fd, XmlRpcServer* server, boo
 XmlRpcServerConnection::~XmlRpcServerConnection()
 {
   XmlRpcUtil::log(4,"XmlRpcServerConnection dtor.");
-  _server->removeConnection(this);
+  _server->removeConnection(this);//从服务器的连接列表中删除
 }
 
 
@@ -56,6 +57,7 @@ XmlRpcServerConnection::~XmlRpcServerConnection()
 unsigned
 XmlRpcServerConnection::handleEvent(unsigned /*eventType*/)
 {
+  //每个连接内部存储了一个自己的状态
   if (_connectionState == READ_HEADER)
     if ( ! readHeader()) return 0;
 

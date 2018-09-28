@@ -23,9 +23,11 @@ namespace XmlRpc {
   class XmlRpcServer;
 
   //! Abstract class representing a single RPC method
+  //抽象基类，代表了单独的RPC方法
   class XMLRPCPP_DECL XmlRpcServerMethod {
   public:
     //! Constructor
+	//添加该方法到一个服务器中
     XmlRpcServerMethod(std::string const& name, XmlRpcServer* server = 0);
     //! Destructor
     virtual ~XmlRpcServerMethod();
@@ -34,6 +36,7 @@ namespace XmlRpc {
     std::string& name() { return _name; }
 
     //! Execute the method. Subclasses must provide a definition for this method.
+	//命令模式，提供执行命令的接口
     virtual void execute(XmlRpcValue& params, XmlRpcValue& result) = 0;
 
     //! Returns a help string for the method.

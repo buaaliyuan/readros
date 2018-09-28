@@ -183,6 +183,7 @@ XmlRpcServer::handleEvent(unsigned)
 unsigned
 XmlRpcServer::acceptConnection()
 {
+  //服务器等待连接到来
   int s = XmlRpcSocket::accept(this->getfd());
   XmlRpcUtil::log(2, "XmlRpcServer::acceptConnection: socket %d", s);
   if (s < 0)
@@ -208,8 +209,11 @@ XmlRpcServer::acceptConnection()
   else  // Notify the dispatcher to listen for input on this source when we are in work()
   {
     XmlRpcUtil::log(2, "XmlRpcServer::acceptConnection: creating a connection");
+	
+	//将接收到的客户端创建连接添加到事件分发器中，等待work时监听
     _disp.addSource(this->createConnection(s), XmlRpcDispatch::ReadableEvent);
   }
+  //return readableevent代表继续监听，接受request
   return XmlRpcDispatch::ReadableEvent; // Continue to monitor this fd
 }
 

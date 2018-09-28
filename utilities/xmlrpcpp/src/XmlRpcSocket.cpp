@@ -292,8 +292,9 @@ XmlRpcSocket::connect(int fd, const std::string& host, int port)
 bool
 XmlRpcSocket::nbRead(int fd, std::string& s, bool *eof)
 {
+	//分配一个固定长度的buffer
   const int READ_SIZE = 4096;   // Number of bytes to attempt to read at a time
-  char readBuf[READ_SIZE];
+  char readBuf[READ_SIZE];//设置readbuf
 
   bool wouldBlock = false;
   *eof = false;
@@ -302,21 +303,24 @@ XmlRpcSocket::nbRead(int fd, std::string& s, bool *eof)
 #if defined(_WINDOWS)
     int n = recv(fd, readBuf, READ_SIZE-1, 0);
 #else
-    int n = read(fd, readBuf, READ_SIZE-1);
+    int n = read(fd, readBuf, READ_SIZE-1);//需要留出0的位置
 #endif
     XmlRpcUtil::log(5, "XmlRpcSocket::nbRead: read/recv returned %d.", n);
 
     if (n > 0) {
-      readBuf[n] = 0;
-      s.append(readBuf, n);
+      readBuf[n] = 0;//字符串需要0结尾
+      s.append(readBuf, n);//添加到buffer
     } else if (n == 0) {
-      *eof = true;
+      *eof = true;//服务器断开
     } else if (nonFatalError()) {
-      wouldBlock = true;
+      wouldBlock = true;//遇到中断等非关键错误
     } else {
       return false;   // Error
     }
   }
+  //1. 分配固定长度buffer
+  //2. 使用while循环读取，注意判断条件有两个，socket断开，非严重错误
+  //3. 判断次序1）n>0 2)n==0 3)n<0时存在两种情况
   return true;
 }
 
@@ -325,9 +329,9 @@ XmlRpcSocket::nbRead(int fd, std::string& s, bool *eof)
 bool
 XmlRpcSocket::nbWrite(int fd, const std::string& s, int *bytesSoFar)
 {
-  int nToWrite = int(s.length()) - *bytesSoFar;
-  char *sp = const_cast<char*>(s.c_str()) + *bytesSoFar;
-  bool wouldBlock = false;
+  int nToWrite = int(s.length()) - *bytesSoFar;//计算应该写入量
+  char *sp = const_cast<char*>(s.c_str()) + *bytesSoFar;//计算写入起始地址
+  bool wouldBlock = false;//异常标记
 
   while ( nToWrite > 0 && ! wouldBlock ) {
 #if defined(_WINDOWS)
@@ -338,11 +342,11 @@ XmlRpcSocket::nbWrite(int fd, const std::string& s, int *bytesSoFar)
     XmlRpcUtil::log(5, "XmlRpcSocket::nbWrite: send/write returned %d.", n);
 
     if (n > 0) {
-      sp += n;
-      *bytesSoFar += n;
-      nToWrite -= n;
+      sp += n;//更新写入地址
+      *bytesSoFar += n;//更新写入量
+      nToWrite -= n;//更新还需写入量
     } else if (nonFatalError()) {
-      wouldBlock = true;
+      wouldBlock = true;//中断
     } else {
       return false;   // Error
     }

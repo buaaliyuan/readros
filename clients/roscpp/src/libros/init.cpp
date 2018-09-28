@@ -123,7 +123,7 @@ void checkForShutdown()
   {
     // Since this gets run from within a mutex inside PollManager, we need to prevent ourselves from deadlocking with
     // another thread that's already in the middle of shutdown()
-    boost::recursive_mutex::scoped_try_lock lock(g_shutting_down_mutex, boost::defer_lock);
+    boost::recursive_mutex::scoped_try_lock lock(g_shutting_down_mutex, boost::defer_lock);//注意defer的使用
     while (!lock.try_lock() && !g_shutting_down)
     {
       ros::WallDuration(0.001).sleep();
@@ -318,7 +318,10 @@ void start()
 
   param::param("/tcp_keepalive", TransportTCP::s_use_keepalive_, TransportTCP::s_use_keepalive_);
 
+  //注册一个关闭检测函数
   PollManager::instance()->addPollThreadListener(checkForShutdown);
+  
+  //注册一个关闭的回调函数
   XMLRPCManager::instance()->bind("shutdown", shutdownCallback);
 
   initInternalTimerManager();
