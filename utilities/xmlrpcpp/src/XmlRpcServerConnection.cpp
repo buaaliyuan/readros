@@ -58,6 +58,8 @@ unsigned
 XmlRpcServerConnection::handleEvent(unsigned /*eventType*/)
 {
   //每个连接内部存储了一个自己的状态
+  //各个阶段的实现是采用的状态机切换的方式
+  //返回0将从server的dispacher中删除
   if (_connectionState == READ_HEADER)
     if ( ! readHeader()) return 0;
 
@@ -76,6 +78,7 @@ bool
 XmlRpcServerConnection::readHeader()
 {
   // Read available data
+  //读取已经到来的数据
   bool eof;
   if ( ! XmlRpcSocket::nbRead(this->getfd(), _header, &eof)) {
     // Its only an error if we already have read some data
@@ -91,6 +94,8 @@ XmlRpcServerConnection::readHeader()
   char *lp = 0;                       // Start of content-length value
   char *kp = 0;                       // Start of connection value
 
+  //逐个对比关键字，提取出对应的结构
+  //这样估计是为了提高效率，一次迭代对比出各个结构位置
   for (char *cp = hp; (bp == 0) && (cp < ep); ++cp) {
 	if ((ep - cp > 16) && (strncasecmp(cp, "Content-length: ", 16) == 0))
 	  lp = cp + 16;
@@ -103,6 +108,7 @@ XmlRpcServerConnection::readHeader()
   }
 
   // If we haven't gotten the entire header yet, return (keep reading)
+  //如果没有找"\r\n\r\n"那么就是没有获取到整个header
   if (bp == 0) {
     // EOF in the middle of a request is an error, otherwise its ok
     if (eof) {
@@ -111,8 +117,8 @@ XmlRpcServerConnection::readHeader()
         XmlRpcUtil::error("XmlRpcServerConnection::readHeader: EOF while reading header");
       return false;   // Either way we close the connection
     }
-    
-    return true;  // Keep reading
+    //因为是流读取，需要保证读取的完整性机制，这里通过检测bp是否读到来确定header的完整性
+    return true;  // Keep reading继续读取
   }
 
   // Decode content length
@@ -120,7 +126,8 @@ XmlRpcServerConnection::readHeader()
     XmlRpcUtil::error("XmlRpcServerConnection::readHeader: No Content-length specified");
     return false;   // We could try to figure it out by parsing as we read, but for now...
   }
-
+  
+  //获取到长度，为下一步读取请求使用
   _contentLength = atoi(lp);
   if (_contentLength <= 0) {
     XmlRpcUtil::error("XmlRpcServerConnection::readHeader: Invalid Content-length specified (%d).", _contentLength);
@@ -130,9 +137,11 @@ XmlRpcServerConnection::readHeader()
   XmlRpcUtil::log(3, "XmlRpcServerConnection::readHeader: specified content length is %d.", _contentLength);
 
   // Otherwise copy non-header data to request buffer and set state to read request.
+  //将多余的非header数据保存，readrequest阶段会使用，重要！
   _request = bp;
 
   // Parse out any interesting bits from the header (HTTP version, connection)
+  
   _keepAlive = true;
   if (_header.find("HTTP/1.0") != std::string::npos) {
     if (kp == 0 || strncasecmp(kp, "keep-alive", 10) != 0)
@@ -144,8 +153,8 @@ XmlRpcServerConnection::readHeader()
   XmlRpcUtil::log(3, "KeepAlive: %d", _keepAlive);
 
 
-  _header = ""; 
-  _connectionState = READ_REQUEST;
+  _header = ""; //清空header数据
+  _connectionState = READ_REQUEST;//转换到读取request状态
   return true;    // Continue monitoring this source
 }
 
@@ -153,8 +162,10 @@ bool
 XmlRpcServerConnection::readRequest()
 {
   // If we dont have the entire request yet, read available data
+  //以readheader阶段读取到的content的length作为本次读取的完整性条件
   if (int(_request.length()) < _contentLength) {
     bool eof;
+	//读取出现错误
     if ( ! XmlRpcSocket::nbRead(this->getfd(), _request, &eof)) {
       XmlRpcUtil::error("XmlRpcServerConnection::readRequest: read error (%s).",XmlRpcSocket::getErrorMsg().c_str());
       return false;
@@ -166,7 +177,7 @@ XmlRpcServerConnection::readRequest()
         XmlRpcUtil::error("XmlRpcServerConnection::readRequest: EOF while reading request");
         return false;   // Either way we close the connection
       }
-      return true;
+      return true;//继续读取
     }
   }
 
@@ -174,7 +185,7 @@ XmlRpcServerConnection::readRequest()
   XmlRpcUtil::log(3, "XmlRpcServerConnection::readRequest read %d bytes.", _request.length());
   //XmlRpcUtil::log(5, "XmlRpcServerConnection::readRequest:\n%s\n", _request.c_str());
 
-  _connectionState = WRITE_RESPONSE;
+  _connectionState = WRITE_RESPONSE;//切换到下一个阶段进行响应
 
   return true;    // Continue monitoring this source
 }

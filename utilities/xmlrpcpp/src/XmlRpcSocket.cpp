@@ -311,9 +311,9 @@ XmlRpcSocket::nbRead(int fd, std::string& s, bool *eof)
       readBuf[n] = 0;//字符串需要0结尾
       s.append(readBuf, n);//添加到buffer
     } else if (n == 0) {
-      *eof = true;//服务器断开
+      *eof = true;//服务器断开，出现错误，放弃本次读取
     } else if (nonFatalError()) {
-      wouldBlock = true;//遇到中断等非关键错误
+      wouldBlock = true;//遇到中断等非关键错误，对于读取非阻塞socket来说是无数据可读
     } else {
       return false;   // Error
     }
