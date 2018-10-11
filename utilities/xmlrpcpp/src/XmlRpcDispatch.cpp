@@ -115,6 +115,7 @@ XmlRpcDispatch::work(double timeout)
 
     SourceList::iterator it;
     std::size_t i = 0;
+    //生成适合poll调用的机构提
     for (it=_sources.begin(); it!=_sources.end(); ++it, ++i) {
       sources[i] = it->getSource();
       fds[i].fd = sources[i]->getfd();
@@ -153,11 +154,13 @@ XmlRpcDispatch::work(double timeout)
       bool writable = (pfd.events & POLLOUT_REQ) == POLLOUT_REQ;
       bool oob = (pfd.events & POLLEX_REQ) == POLLEX_REQ;
 	  
-	  //调用回调函数
+	  //调用回调函数，依赖source提供的handleEvent接口
       if (readable && (pfd.revents & POLLIN_CHK))
         newMask &= src->handleEvent(ReadableEvent);
+
       if (writable && (pfd.revents & POLLOUT_CHK))
         newMask &= src->handleEvent(WritableEvent);
+
       if (oob && (pfd.revents & POLLEX_CHK))
         newMask &= src->handleEvent(Exception);
 

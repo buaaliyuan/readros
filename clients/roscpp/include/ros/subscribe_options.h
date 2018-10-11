@@ -40,6 +40,8 @@ namespace ros
 /**
  * \brief Encapsulates all options available for creating a Subscriber
  */
+
+//封装创建一个订阅者所需的 所有选项
 struct ROSCPP_DECL SubscribeOptions
 {
   /**

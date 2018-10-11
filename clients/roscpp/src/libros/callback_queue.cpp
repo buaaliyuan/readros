@@ -100,6 +100,7 @@ bool CallbackQueue::isEnabled()
   return enabled_;
 }
 
+//创建线程局部存储
 void CallbackQueue::setupTLS()
 {
   if (!tls_.get())
@@ -108,6 +109,8 @@ void CallbackQueue::setupTLS()
   }
 }
 
+
+//向队列添加一个回调函数
 void CallbackQueue::addCallback(const CallbackInterfacePtr& callback, uint64_t removal_id)
 {
   CallbackInfo info;
@@ -118,7 +121,7 @@ void CallbackQueue::addCallback(const CallbackInterfacePtr& callback, uint64_t r
     boost::mutex::scoped_lock lock(id_info_mutex_);
 
     M_IDInfo::iterator it = id_info_.find(removal_id);
-    if (it == id_info_.end())
+    if (it == id_info_.end())//没有找到对应的removal_id
     {
       IDInfoPtr id_info(boost::make_shared<IDInfo>());
       id_info->id = removal_id;
@@ -159,6 +162,7 @@ void CallbackQueue::removeByID(uint64_t removal_id)
   {
     IDInfoPtr id_info;
     {
+      //根据id查找
       boost::mutex::scoped_lock lock(id_info_mutex_);
       M_IDInfo::iterator it = id_info_.find(removal_id);
       if (it != id_info_.end())
@@ -223,50 +227,54 @@ void CallbackQueue::removeByID(uint64_t removal_id)
   }
 }
 
+//调用回调函数
 CallbackQueue::CallOneResult CallbackQueue::callOne(ros::WallDuration timeout)
 {
   setupTLS();
+  //获取线程局部存储
   TLS* tls = tls_.get();
 
   CallbackInfo cb_info;
 
   {
     boost::mutex::scoped_lock lock(mutex_);
-
+    //回调队列被禁止
     if (!enabled_)
     {
       return Disabled;
     }
-
+    //回调队列为空
     if (callbacks_.empty())
     {
+      //看是否使用了超时等待策略，使用条件变量加超时来实现
       if (!timeout.isZero())
       {
         condition_.wait_for(lock, boost::chrono::nanoseconds(timeout.toNSec()));
       }
-
+      //回调队列中为空
       if (callbacks_.empty())
       {
         return Empty;
       }
-
+      //禁止使用
       if (!enabled_)
       {
         return Disabled;
       }
     }
-
+    
+    //队列不为空，开始遍历
     D_CallbackInfo::iterator it = callbacks_.begin();
     for (; it != callbacks_.end();)
     {
       CallbackInfo& info = *it;
-
+      //遍历，删除掉被标记的回调
       if (info.marked_for_removal)
       {
         it = callbacks_.erase(it);
         continue;
       }
-
+      //如果回调时ok，则跳出循环
       if (info.callback->ready())
       {
         cb_info = info;
@@ -276,7 +284,7 @@ CallbackQueue::CallOneResult CallbackQueue::callOne(ros::WallDuration timeout)
 
       ++it;
     }
-
+    //如果没有注册回调
     if (!cb_info.callback)
     {
       return TryAgain;
@@ -286,7 +294,7 @@ CallbackQueue::CallOneResult CallbackQueue::callOne(ros::WallDuration timeout)
   }
 
   bool was_empty = tls->callbacks.empty();
-  tls->callbacks.push_back(cb_info);
+  tls->callbacks.push_back(cb_info);//将回调保存到线程存储，为什么？？
   if (was_empty)
   {
     tls->cb_it = tls->callbacks.begin();
@@ -402,7 +410,7 @@ CallbackQueue::CallOneResult CallbackQueue::callOneCB(TLS* tls)
       }
       else
       {
-        tls->cb_it = tls->callbacks.erase(tls->cb_it);
+        tls->cb_it = tls-> callbacks.erase(tls->cb_it);
         result = cb->call();
       }
     }

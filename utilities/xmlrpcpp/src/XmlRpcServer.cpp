@@ -164,7 +164,7 @@ XmlRpcServer::work(double msTime)
   if(_accept_error && _disp.getTime() > _accept_retry_time_sec) {
     _disp.addSource(this, XmlRpcDispatch::ReadableEvent);
   }
-  _disp.work(msTime);
+  _disp.work(msTime);//由dispatcher来分发回调
 }
 
 
@@ -174,7 +174,7 @@ XmlRpcServer::work(double msTime)
 unsigned
 XmlRpcServer::handleEvent(unsigned)
 {
-  return acceptConnection();
+  return acceptConnection();//接受连接到本服务器的客户端
 }
 
 
@@ -211,7 +211,7 @@ XmlRpcServer::acceptConnection()
     XmlRpcUtil::log(2, "XmlRpcServer::acceptConnection: creating a connection");
 	
 	//将接收到的客户端创建连接添加到事件分发器中，等待work时监听
-    _disp.addSource(this->createConnection(s), XmlRpcDispatch::ReadableEvent);
+    _disp.addSource(this->createConnection(s), XmlRpcDispatch::ReadableEvent);//readableevent是因为首先需要监听客户端的header
   }
   //return readableevent代表继续监听，接受request
   return XmlRpcDispatch::ReadableEvent; // Continue to monitor this fd

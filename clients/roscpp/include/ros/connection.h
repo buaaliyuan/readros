@@ -56,6 +56,8 @@ class Transport;
 typedef boost::shared_ptr<Transport> TransportPtr;
 class Connection;
 typedef boost::shared_ptr<Connection> ConnectionPtr;
+
+//通过这种方式封装函数不错，既可以lambda、函数对象、原始指针都可以
 typedef boost::function<void(const ConnectionPtr&, const boost::shared_array<uint8_t>&, uint32_t, bool)> ReadFinishedFunc;
 typedef boost::function<void(const ConnectionPtr&)> WriteFinishedFunc;
 

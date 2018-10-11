@@ -36,7 +36,7 @@
 #define ROSBAG_CONSTANTS_H
 
 #include <string>
-#include <stdint.h>
+#include <stdint.h>//固定宽度数据类型
 
 namespace rosbag {
 
@@ -74,7 +74,7 @@ static const std::string CALLERID_FIELD_NAME = "callerid";      // <2.0
 
 // Current "op" field values
 static const unsigned char OP_MSG_DATA    = 0x02;
-static const unsigned char OP_FILE_HEADER = 0x03;
+static const unsigned char OP_FILE_HEADER = 0x03;//网页上写的bagheader
 static const unsigned char OP_INDEX_DATA  = 0x04;
 static const unsigned char OP_CHUNK       = 0x05;
 static const unsigned char OP_CHUNK_INFO  = 0x06;

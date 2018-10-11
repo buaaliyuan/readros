@@ -22,6 +22,7 @@ namespace XmlRpc {
 
   //! An object which monitors file descriptors for events and performs
   //! callbacks when interesting events happen.
+  //监视socket，对发生的感兴趣的事件执行回调
   class XMLRPCPP_DECL XmlRpcDispatch {
   public:
     //! Constructor
@@ -30,8 +31,8 @@ namespace XmlRpc {
 
     //! Values indicating the type of events a source is interested in
     enum EventType {
-      ReadableEvent = 1,    //!< data available to read
-      WritableEvent = 2,    //!< connected/data can be written without blocking
+      ReadableEvent = 1,    //!< data available to read可读事件
+      WritableEvent = 2,    //!< connected/data can be written without blocking可写事件
       Exception     = 4     //!< out-of-band data has arrived
     };
     
@@ -39,6 +40,7 @@ namespace XmlRpc {
     //! and call its event handler when any of the events occur.
     //!  @param source The source to monitor
     //!  @param eventMask Which event types to watch for. \see EventType
+    //添加socket并指定感兴趣的事件
     void addSource(XmlRpcSource* source, unsigned eventMask);
 
     //! Stop monitoring this source.
@@ -46,11 +48,13 @@ namespace XmlRpc {
     void removeSource(XmlRpcSource* source);
 
     //! Modify the types of events to watch for on this source
+    //修改source感兴趣的事件
     void setSourceEvents(XmlRpcSource* source, unsigned eventMask);
 
 
     //! Watch current set of sources and process events for the specified
     //! duration (in ms, -1 implies wait forever, or until exit is called)
+    //监控
     void work(double msTime);
 
     //! Exit from work routine
@@ -75,6 +79,7 @@ namespace XmlRpc {
     typedef std::list< MonitoredSource > SourceList; 
 
     // Sources being monitored
+    //dispatcher中被监控的socket
     SourceList _sources;
   protected:
 

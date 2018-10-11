@@ -50,6 +50,7 @@ typedef std::vector<SubscriberLinkPtr> V_SubscriberLink;
 /**
  * \brief A Publication manages an advertised topic
  */
+//一个Publication管理一个发布的话题
 class ROSCPP_DECL Publication
 {
 public:
@@ -63,33 +64,40 @@ public:
 
   ~Publication();
 
+  //??
   void addCallbacks(const SubscriberCallbacksPtr& callbacks);
   void removeCallbacks(const SubscriberCallbacksPtr& callbacks);
 
   /**
    * \brief queues an outgoing message into each of the publishers, so that it gets sent to every subscriber
    */
+  //将信息发插入每个publisher，可以发送给每个订阅者
   bool enqueueMessage(const SerializedMessage& m);
   /**
    * \brief returns the max queue size of this publication
    */
+  //最大队列size
   inline size_t getMaxQueue() { return max_queue_; }
   /**
    * \brief Get the accumulated stats for this publication
    */
+  //获取累计状态
   XmlRpc::XmlRpcValue getStats();
   /**
    * \brief Get the accumulated info for this publication
    */
+  //获取累计信息
   void getInfo(XmlRpc::XmlRpcValue& info);
 
   /**
    * \brief Returns whether or not this publication has any subscribers
    */
+  //返回topic是否有订阅者
   bool hasSubscribers();
   /**
    * \brief Returns the number of subscribers this publication has
    */
+  //查询有多少个订阅者
   uint32_t getNumSubscribers();
 
   void getPublishTypes(bool& serialize, bool& nocopy, const std::type_info& ti);
@@ -97,14 +105,17 @@ public:
   /**
    * \brief Returns the name of the topic this publication broadcasts to
    */
+  //获取该publication关联topic的名称
   const std::string& getName() const { return name_; }
   /**
    * \brief Returns the data type of the message published by this publication
    */
+  //获取Publication发出消息的类型
   const std::string& getDataType() const { return datatype_; }
   /**
    * \brief Returns the md5sum of the message published by this publication
    */
+  //获取消息的md5值
   const std::string& getMD5Sum() const { return md5sum_; }
   /**
    * \brief Returns the full definition of the message published by this publication
@@ -113,6 +124,7 @@ public:
   /**
    * \brief Returns the sequence number
    */
+  //消息序列号
   uint32_t getSequence() { return seq_; }
 
   bool isLatched() { return latch_; }
@@ -120,10 +132,12 @@ public:
   /**
    * \brief Adds a publisher to our list
    */
+  //向Publication中添加publisher
   void addSubscriberLink(const SubscriberLinkPtr& sub_link);
   /**
    * \brief Removes a publisher from our list (deleting it if it's the last reference)
    */
+  //移除一个发布者
   void removeSubscriberLink(const SubscriberLinkPtr& sub_link);
 
   /**
@@ -143,7 +157,7 @@ public:
 
   void publish(SerializedMessage& m);
   void processPublishQueue();
-
+  //验证header
   bool validateHeader(const Header& h, std::string& error_msg);
 
 private:
@@ -170,7 +184,7 @@ private:
   V_Callback callbacks_;
   boost::mutex callbacks_mutex_;
 
-  V_SubscriberLink subscriber_links_;
+  V_SubscriberLink subscriber_links_;//??
   // We use a recursive mutex here for the rare case that a publish call causes another one (like in the case of a rosconsole call)
   boost::mutex subscriber_links_mutex_;
 
@@ -183,6 +197,7 @@ private:
   uint32_t intraprocess_subscriber_count_;
 
   typedef std::vector<SerializedMessage> V_SerializedMessage;
+  //存储了要发送的message
   V_SerializedMessage publish_queue_;
   boost::mutex publish_queue_mutex_;
 };

@@ -38,8 +38,8 @@ XmlRpcServerConnection::XmlRpcServerConnection(int fd, XmlRpcServer* server, boo
   XmlRpcUtil::log(2,"XmlRpcServerConnection: new socket %d.", fd);
   _server = server;
   _connectionState = READ_HEADER;//先读取客户端发来的header
-  _contentLength = 0;
-  _bytesWritten = 0;
+  _contentLength = 0;//正文长度
+  _bytesWritten = 0;//已经写入的字节数量
   _keepAlive = true;
 }
 
@@ -82,11 +82,12 @@ XmlRpcServerConnection::readHeader()
   bool eof;
   if ( ! XmlRpcSocket::nbRead(this->getfd(), _header, &eof)) {
     // Its only an error if we already have read some data
+    //读取出现错误
     if (_header.length() > 0)
       XmlRpcUtil::error("XmlRpcServerConnection::readHeader: error while reading header (%s).",XmlRpcSocket::getErrorMsg().c_str());
     return false;
   }
-
+  //在header中检索每个字段
   XmlRpcUtil::log(4, "XmlRpcServerConnection::readHeader: read %d bytes.", _header.length());
   char *hp = (char*)_header.c_str();  // Start of header
   char *ep = hp + _header.length();   // End of string
@@ -101,9 +102,9 @@ XmlRpcServerConnection::readHeader()
 	  lp = cp + 16;
 	else if ((ep - cp > 12) && (strncasecmp(cp, "Connection: ", 12) == 0))
 	  kp = cp + 12;
-	else if ((ep - cp > 4) && (strncmp(cp, "\r\n\r\n", 4) == 0))
+	else if ((ep - cp > 4) && (strncmp(cp, "\r\n\r\n", 4) == 0))//windows??
 	  bp = cp + 4;
-	else if ((ep - cp > 2) && (strncmp(cp, "\n\n", 2) == 0))
+	else if ((ep - cp > 2) && (strncmp(cp, "\n\n", 2) == 0))//linux??
 	  bp = cp + 2;
   }
 
@@ -111,6 +112,7 @@ XmlRpcServerConnection::readHeader()
   //如果没有找"\r\n\r\n"那么就是没有获取到整个header
   if (bp == 0) {
     // EOF in the middle of a request is an error, otherwise its ok
+    //读到一半网络断开
     if (eof) {
       XmlRpcUtil::log(4, "XmlRpcServerConnection::readHeader: EOF");
       if (_header.length() > 0)
@@ -129,6 +131,7 @@ XmlRpcServerConnection::readHeader()
   
   //获取到长度，为下一步读取请求使用
   _contentLength = atoi(lp);
+
   if (_contentLength <= 0) {
     XmlRpcUtil::error("XmlRpcServerConnection::readHeader: Invalid Content-length specified (%d).", _contentLength);
     return false;
@@ -195,6 +198,7 @@ bool
 XmlRpcServerConnection::writeResponse()
 {
   if (_response.length() == 0) {
+    //执行注册的函数
     executeRequest();
     _bytesWritten = 0;
     if (_response.length() == 0) {
@@ -204,6 +208,7 @@ XmlRpcServerConnection::writeResponse()
   }
 
   // Try to write the response
+  //将响应写入socket，可能需要多次
   if ( ! XmlRpcSocket::nbWrite(this->getfd(), _response, &_bytesWritten)) {
     XmlRpcUtil::error("XmlRpcServerConnection::writeResponse: write error (%s).",XmlRpcSocket::getErrorMsg().c_str());
     return false;
@@ -211,13 +216,15 @@ XmlRpcServerConnection::writeResponse()
   XmlRpcUtil::log(3, "XmlRpcServerConnection::writeResponse: wrote %d of %d bytes.", _bytesWritten, _response.length());
 
   // Prepare to read the next request
+  //将response长度作为结束写入状态的标准
   if (_bytesWritten == int(_response.length())) {
+    //全部恢复
     _header = "";
     _request = "";
     _response = "";
-    _connectionState = READ_HEADER;
+    _connectionState = READ_HEADER;//恢复到READ_HEADER状态
   }
-
+  //keepalive参数是从文件头中解析出来，说明了一次调用完成后是否保持该连接
   return _keepAlive;    // Continue monitoring this source if true
 }
 
@@ -236,7 +243,7 @@ XmlRpcServerConnection::executeRequest()
          ! executeMulticall(methodName, params, resultValue))
       generateFaultResponse(methodName + ": unknown method name");
     else
-      generateResponse(resultValue.toXml());
+      generateResponse(resultValue.toXml());//将结果转化为xml结果
 
   } catch (const XmlRpcException& fault) {
     XmlRpcUtil::log(2, "XmlRpcServerConnection::executeRequest: fault %s.",
@@ -246,6 +253,7 @@ XmlRpcServerConnection::executeRequest()
 }
 
 // Parse the method name and the argument values from the request.
+//解析发来的body，得出函数名称，解析得到参数
 std::string
 XmlRpcServerConnection::parseRequest(XmlRpcValue& params)
 {
@@ -272,10 +280,11 @@ bool
 XmlRpcServerConnection::executeMethod(const std::string& methodName, 
                                       XmlRpcValue& params, XmlRpcValue& result)
 {
+  //从已经注册的函数中找到函数
   XmlRpcServerMethod* method = _server->findMethod(methodName);
 
   if ( ! method) return false;
-
+  //执行
   method->execute(params, result);
 
   // Ensure a valid result value

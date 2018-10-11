@@ -59,24 +59,24 @@ struct ROSBAG_STORAGE_DECL ConnectionInfo
 
 struct ChunkInfo
 {
-    ros::Time   start_time;    //! earliest timestamp of a message in the chunk
-    ros::Time   end_time;      //! latest timestamp of a message in the chunk
-    uint64_t    pos;           //! absolute byte offset of chunk record in bag file
+    ros::Time   start_time;    //! earliest timestamp of a message in the chunk，在chunk中的最早的时间
+    ros::Time   end_time;      //! latest timestamp of a message in the chunk，在chunk中最晚的时间
+    uint64_t    pos;           //! absolute byte offset of chunk record in bag file，chunk在bag中的绝对偏移
 
-    std::map<uint32_t, uint32_t> connection_counts;   //! number of messages in each connection stored in the chunk
+    std::map<uint32_t, uint32_t> connection_counts;   //! number of messages in each connection stored in the chunk，在这个chunk中每个connection中消息的数量
 };
 
 struct ROSBAG_STORAGE_DECL ChunkHeader
 {
-    std::string compression;          //! chunk compression type, e.g. "none" or "bz2" (see constants.h)
-    uint32_t    compressed_size;      //! compressed size of the chunk in bytes
-    uint32_t    uncompressed_size;    //! uncompressed size of the chunk in bytes
+    std::string compression;          //! chunk compression type, e.g. "none" or "bz2" (see constants.h)，压缩类型
+    uint32_t    compressed_size;      //! compressed size of the chunk in bytes，压缩时chunk的大小
+    uint32_t    uncompressed_size;    //! uncompressed size of the chunk in bytes，未压缩时chunk的大小
 };
 
 struct ROSBAG_STORAGE_DECL IndexEntry
 {
-    ros::Time time;            //! timestamp of the message
-    uint64_t  chunk_pos;       //! absolute byte offset of the chunk record containing the message
+    ros::Time time;            //! timestamp of the message，消息的时间戳
+    uint64_t  chunk_pos;       //! absolute byte offset of the chunk record containing the message，这条消息所在chunk在文件中的偏移量
     uint32_t  offset;          //! relative byte offset of the message record (either definition or data) in the chunk
 
     bool operator<(IndexEntry const& b) const { return time < b.time; }

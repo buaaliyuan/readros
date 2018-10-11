@@ -65,6 +65,8 @@ class ChunkedFile;
 
 class FileAccessor;
 
+
+//提供了操作ChunkedFile的接口，相当于对于文件的操作委托给了三个具体的子类来操作
 class ROSBAG_STORAGE_DECL Stream
 {
     friend class FileAccessor;
@@ -72,6 +74,7 @@ public:
     Stream(ChunkedFile* file);
     virtual ~Stream();
 
+    //获取压缩类型，一般在顶层抽象基类中提供这个接口
     virtual CompressionType getCompressionType() const = 0;
 
     virtual void write(void* ptr, size_t size) = 0;

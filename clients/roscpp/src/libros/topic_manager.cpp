@@ -61,7 +61,7 @@ const TopicManagerPtr& TopicManager::instance()
 
 TopicManager::TopicManager()
 : shutting_down_(false)
-{
+{//有些成员也没必要一定要初始化
 }
 
 TopicManager::~TopicManager()
@@ -73,11 +73,13 @@ void TopicManager::start()
 {
   boost::mutex::scoped_lock shutdown_lock(shutting_down_mutex_);
   shutting_down_ = false;
-
+  
+  //单例用成员变量保存也不错
   poll_manager_ = PollManager::instance();
   connection_manager_ = ConnectionManager::instance();
   xmlrpc_manager_ = XMLRPCManager::instance();
 
+  //xmlrpc服务器绑定内置函数，对外提供服务
   xmlrpc_manager_->bind("publisherUpdate", boost::bind(&TopicManager::pubUpdateCallback, this, _1, _2));
   xmlrpc_manager_->bind("requestTopic", boost::bind(&TopicManager::requestTopicCallback, this, _1, _2));
   xmlrpc_manager_->bind("getBusStats", boost::bind(&TopicManager::getBusStatsCallback, this, _1, _2));
@@ -85,6 +87,7 @@ void TopicManager::start()
   xmlrpc_manager_->bind("getSubscriptions", boost::bind(&TopicManager::getSubscriptionsCallback, this, _1, _2));
   xmlrpc_manager_->bind("getPublications", boost::bind(&TopicManager::getPublicationsCallback, this, _1, _2));
 
+  //绑定“槽函数”到poll_manager,将周期性的被执行
   poll_manager_->addPollThreadListener(boost::bind(&TopicManager::processPublishQueues, this));
 }
 
@@ -154,15 +157,18 @@ void TopicManager::processPublishQueues()
   for (; it != end; ++it)
   {
     const PublicationPtr& pub = *it;
+    //调用每个topic的processPublishQueue
     pub->processPublishQueue();
   }
 }
 
+//返回所有注册的topic名称
 void TopicManager::getAdvertisedTopics(V_string& topics)
 {
   boost::mutex::scoped_lock lock(advertised_topic_names_mutex_);
 
   topics.resize(advertised_topic_names_.size());
+  //使用copy
   std::copy(advertised_topic_names_.begin(),
             advertised_topic_names_.end(),
             topics.begin());

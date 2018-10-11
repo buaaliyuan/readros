@@ -75,6 +75,7 @@ ChunkedFile::~ChunkedFile() {
     close();
 }
 
+//只是简单的封装了打开方式
 void ChunkedFile::openReadWrite(string const& filename) { open(filename, "r+b"); }
 void ChunkedFile::openWrite    (string const& filename) { open(filename, "w+b");  }
 void ChunkedFile::openRead     (string const& filename) { open(filename, "rb");  }
@@ -90,9 +91,9 @@ void ChunkedFile::open(string const& filename, string const& mode) {
         #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
             fopen_s( &file_, filename.c_str(), "r" );
         #else
-            file_ = fopen(filename.c_str(), "r");
+            file_ = fopen(filename.c_str(), "r");//用打开的方式检查文件是否已经存在
         #endif
-        if (file_ == NULL)
+        if (file_ == NULL)//不存在的话用写入二进制模式创建一个文件
             // create an empty file and open it for update
             #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
                 fopen_s( &file_, filename.c_str(), "w+b" );
@@ -100,7 +101,7 @@ void ChunkedFile::open(string const& filename, string const& mode) {
                 file_ = fopen(filename.c_str(), "w+b");
             #endif
         else {
-            fclose(file_);
+            fclose(file_);//如果 已经存在则关闭刚刚打开的检测，使用二进制打开模式重新打开文件
             // open existing file for update
             #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
                 fopen_s( &file_, filename.c_str(), "r+b" );
@@ -113,16 +114,17 @@ void ChunkedFile::open(string const& filename, string const& mode) {
         #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
             fopen_s( &file_, filename.c_str(), mode.c_str() );
         #else
-            file_ = fopen(filename.c_str(), mode.c_str());
+            file_ = fopen(filename.c_str(), mode.c_str());//其他模式为何直接fopen??
         #endif
-
+    //文件打开失败抛出异常
     if (!file_)
         throw BagIOException((format("Error opening file: %1%") % filename.c_str()).str());
 
+    //创建读写流
     read_stream_  = boost::make_shared<UncompressedStream>(this);
     write_stream_ = boost::make_shared<UncompressedStream>(this);
     filename_     = filename;
-    offset_       = ftello(file_);
+    offset_       = ftello(file_);//获取偏移量
 }
 
 bool ChunkedFile::good() const {
@@ -199,7 +201,7 @@ void ChunkedFile::write(void* ptr, size_t size) { write_stream_->write(ptr, size
 void ChunkedFile::read(void* ptr, size_t size)  { read_stream_->read(ptr, size);      }
 
 bool ChunkedFile::truncate(uint64_t length) {
-    int fd = fileno(file_);
+    int fd = fileno(file_);//从FILE*->fd的转换
     return ftruncate(fd, length) == 0;
 }
 

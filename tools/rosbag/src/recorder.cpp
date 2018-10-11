@@ -153,10 +153,12 @@ int Recorder::run() {
         return 0;
 
     last_buffer_warn_ = Time();
+    //创建一个outgoingmessage
     queue_ = new std::queue<OutgoingMessage>;
 
     // Subscribe to each topic
     if (!options_.regex) {
+        //订阅所有的话题
     	foreach(string const& topic, options_.topics)
 			subscribe(topic);
     }
@@ -165,7 +167,7 @@ int Recorder::run() {
       ROS_WARN("/use_sim_time set to true and no clock published.  Still waiting for valid time...");
 
     ros::Time::waitForValid();
-
+    //记录开始时间
     start_time_ = ros::Time::now();
 
     // Don't bother doing anything if we never got a valid time
@@ -184,7 +186,7 @@ int Recorder::run() {
         trigger_sub = nh.subscribe<std_msgs::Empty>("snapshot_trigger", 100, boost::bind(&Recorder::snapshotTrigger, this, _1));
     }
     else
-        record_thread = boost::thread(boost::bind(&Recorder::doRecord, this));
+        record_thread = boost::thread(boost::bind(&Recorder::doRecord, this));//开启写入线程
 
 
 
@@ -199,7 +201,7 @@ int Recorder::run() {
     ros::AsyncSpinner s(10);
     s.start();
 
-    record_thread.join();
+    record_thread.join();//等待记录线程结束
     queue_condition_.notify_all();
     delete queue_;
 
@@ -224,7 +226,7 @@ shared_ptr<ros::Subscriber> Recorder::subscribe(string const& topic) {
     ops.transport_hints = options_.transport_hints;
     *sub = nh.subscribe(ops);
 
-    currently_recording_.insert(topic);
+    currently_recording_.insert(topic);//当前正在record的topic
     num_subscribers_++;
 
     return sub;
@@ -282,6 +284,7 @@ std::string Recorder::timeToStr(T ros_t)
 }
 
 //! Callback to be invoked to save messages into a queue
+//插入消息到Queue中
 void Recorder::doQueue(const ros::MessageEvent<topic_tools::ShapeShifter const>& msg_event, string const& topic, shared_ptr<ros::Subscriber> subscriber, shared_ptr<int> count) {
     //void Recorder::doQueue(topic_tools::ShapeShifter::ConstPtr msg, string const& topic, shared_ptr<ros::Subscriber> subscriber, shared_ptr<int> count) {
     Time rectime = Time::now();
@@ -289,15 +292,17 @@ void Recorder::doQueue(const ros::MessageEvent<topic_tools::ShapeShifter const>&
     if (options_.verbose)
         cout << "Received message on topic " << subscriber->getTopic() << endl;
 
+    //使用out来创建接收到的消息
     OutgoingMessage out(topic, msg_event.getMessage(), msg_event.getConnectionHeaderPtr(), rectime);
     
     {
         boost::mutex::scoped_lock lock(queue_mutex_);
 
-        queue_->push(out);
-        queue_size_ += out.msg->size();
+        queue_->push(out);//消息推入队列
+        queue_size_ += out.msg->size();//这个是消息的总长度
         
         // Check to see if buffer has been exceeded
+        //buffer长度控制
         while (options_.buffer_size > 0 && queue_size_ > options_.buffer_size) {
             OutgoingMessage drop = queue_->front();
             queue_->pop();
@@ -305,6 +310,7 @@ void Recorder::doQueue(const ros::MessageEvent<topic_tools::ShapeShifter const>&
 
             if (!options_.snapshot) {
                 Time now = Time::now();
+                //限制报警速度
                 if (now > last_buffer_warn_ + ros::Duration(5.0)) {
                     ROS_WARN("rosbag record buffer exceeded.  Dropping oldest queued message.");
                     last_buffer_warn_ = now;
@@ -379,12 +385,12 @@ void Recorder::snapshotTrigger(std_msgs::Empty::ConstPtr trigger) {
 }
 
 void Recorder::startWriting() {
-    bag_.setCompression(options_.compression);
-    bag_.setChunkThreshold(options_.chunk_size);
+    bag_.setCompression(options_.compression);//压缩模式
+    bag_.setChunkThreshold(options_.chunk_size);//
 
     updateFilenames();
     try {
-        bag_.open(write_filename_, bagmode::Write);
+        bag_.open(write_filename_, bagmode::Write);//创建bag文件
     }
     catch (rosbag::BagException e) {
         ROS_ERROR("Error writing: %s", e.what());
@@ -440,11 +446,11 @@ bool Recorder::checkSize()
 
 bool Recorder::checkDuration(const ros::Time& t)
 {
-    if (options_.max_duration > ros::Duration(0))
+    if (options_.max_duration > ros::Duration(0))//指定最大记录时间
     {
-        if (t - start_time_ > options_.max_duration)
+        if (t - start_time_ > options_.max_duration)//时间超过最大记录时间
         {
-            if (options_.split)
+            if (options_.split)//指定了拆分文件
             {
                 while (start_time_ + options_.max_duration < t)
                 {
@@ -465,25 +471,26 @@ bool Recorder::checkDuration(const ros::Time& t)
 
 
 //! Thread that actually does writing to file.
+//真正进行文件写入的线程
 void Recorder::doRecord() {
     // Open bag file for writing
-    startWriting();
+    startWriting();//创建bag文件
 
     // Schedule the disk space check
     warn_next_ = ros::WallTime();
 
     try
     {
-        checkDisk();
+        checkDisk();//检查磁盘剩余
     }
-    catch (rosbag::BagException &ex)
+    catch (rosbag::BagException &ex)//使用异常，引用
     {
         ROS_ERROR_STREAM(ex.what());
         exit_code_ = 1;
         stopWriting();
         return;
     }
-
+    //更新下次检查磁盘的时间
     check_disk_next_ = ros::WallTime::now() + ros::WallDuration().fromSec(20.0);
 
     // Technically the queue_mutex_ should be locked while checking empty.
@@ -494,7 +501,7 @@ void Recorder::doRecord() {
         boost::unique_lock<boost::mutex> lock(queue_mutex_);
 
         bool finished = false;
-        while (queue_->empty()) {
+        while (queue_->empty()) {//如果此时没有消息
             if (!nh.ok()) {
                 lock.release()->unlock();
                 finished = true;
@@ -507,8 +514,9 @@ void Recorder::doRecord() {
             boost::xtime_get(&xt, boost::TIME_UTC);
 #endif
             xt.nsec += 250000000;
+            //在条件变量等待，超时
             queue_condition_.timed_wait(lock, xt);
-            if (checkDuration(ros::Time::now()))
+            if (checkDuration(ros::Time::now()))//检查有没有超过规定的时间
             {
                 finished = true;
                 break;
@@ -516,21 +524,23 @@ void Recorder::doRecord() {
         }
         if (finished)
             break;
-
+        
+        //取出一条消息进行处理
         OutgoingMessage out = queue_->front();
         queue_->pop();
         queue_size_ -= out.msg->size();
         
-        lock.release()->unlock();
+        lock.release()->unlock();//开锁
         
-        if (checkSize())
+        if (checkSize())//检测文件是否已经超过上限
             break;
 
-        if (checkDuration(out.time))
+        if (checkDuration(out.time))//检查时间是否超时
             break;
 
         try
         {
+            //真正的写入文件
             if (scheduledCheckDisk() && checkLogging())
                 bag_.write(out.topic, out.time, *out.msg, out.connection_header);
         }
@@ -645,14 +655,16 @@ void Recorder::doTrigger() {
 
 bool Recorder::scheduledCheckDisk() {
     boost::mutex::scoped_lock lock(check_disk_mutex_);
-
+    //通过时间来限制检查磁盘的频率
     if (ros::WallTime::now() < check_disk_next_)
         return true;
-
+    
+    //更新下次检查磁盘的时间
     check_disk_next_ += ros::WallDuration().fromSec(20.0);
     return checkDisk();
 }
 
+//磁盘剩余空间检查
 bool Recorder::checkDisk() {
 #if BOOST_FILESYSTEM_VERSION < 3
     struct statvfs fiData;
@@ -683,7 +695,7 @@ bool Recorder::checkDisk() {
     boost::filesystem::space_info info;
     try
     {
-        info = boost::filesystem::space(p);
+        info = boost::filesystem::space(p);//直接使用boost函数来获取剩余磁盘空间
     }
     catch (boost::filesystem::filesystem_error &e) 
     { 
@@ -709,10 +721,12 @@ bool Recorder::checkDisk() {
     return true;
 }
 
+
+//提示错误
 bool Recorder::checkLogging() {
     if (writing_enabled_)
         return true;
-
+    //通过时间来限制警告时间
     ros::WallTime now = ros::WallTime::now();
     if (now >= warn_next_) {
         warn_next_ = now + ros::WallDuration().fromSec(5.0);

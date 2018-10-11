@@ -45,6 +45,8 @@
 
 #define foreach BOOST_FOREACH
 
+
+//引入一个小的命名空间
 using std::map;
 using std::priority_queue;
 using std::string;
@@ -117,6 +119,7 @@ void Bag::open(string const& filename, uint32_t mode) {
         throw BagException((format("Unknown mode: %1%") % (int) mode).str());
 
     // Determine file size
+    //确定文件大小
     uint64_t offset = file_.getOffset();
     seek(0, std::ios::end);
     file_size_ = file_.getOffset();
@@ -137,6 +140,7 @@ void Bag::openRead(string const& filename) {
 }
 
 void Bag::openWrite(string const& filename) {
+    //对于记录来说是创建文件
     file_.openWrite(filename);
 
     startWriting();
@@ -229,7 +233,8 @@ void Bag::setEncryptorPlugin(std::string const& plugin_name, std::string const& 
 // Version
 
 void Bag::writeVersion() {
-    string version = string("#ROSBAG V") + VERSION + string("\n");
+    //创建版本号
+    string version = string("#ROSBAG V") + VERSION + string("\n");//添加换行
 
     CONSOLE_BRIDGE_logDebug("Writing VERSION [%llu]: %s", (unsigned long long) file_.getOffset(), version.c_str());
 
@@ -264,8 +269,8 @@ uint32_t Bag::getMinorVersion() const { return version_ % 100; }
 
 void Bag::startWriting() {
     writeVersion();
-    file_header_pos_ = file_.getOffset();
-    writeFileHeaderRecord();
+    file_header_pos_ = file_.getOffset();//记录文件头在文件中的位置
+    writeFileHeaderRecord();//写入bag头信息
 }
 
 void Bag::stopWriting() {
@@ -352,7 +357,7 @@ void Bag::startReadingVersion102() {
 }
 
 // File header record
-
+//文件头记录
 void Bag::writeFileHeaderRecord() {
     connection_count_ = connections_.size();
     chunk_count_      = chunks_.size();
@@ -368,21 +373,22 @@ void Bag::writeFileHeaderRecord() {
     header[CHUNK_COUNT_FIELD_NAME]      = toHeaderString(&chunk_count_);
     encryptor_->addFieldsToFileHeader(header);
 
-    boost::shared_array<uint8_t> header_buffer;
+    boost::shared_array<uint8_t> header_buffer;//boost shared array的用武之地
     uint32_t header_len;
+    //将一个map转换为buffer，在header.h
     ros::Header::write(header, header_buffer, header_len);
     uint32_t data_len = 0;
     if (header_len < FILE_HEADER_LENGTH)
-        data_len = FILE_HEADER_LENGTH - header_len;
-    write((char*) &header_len, 4);
-    write((char*) header_buffer.get(), header_len);
+        data_len = FILE_HEADER_LENGTH - header_len;//剩余的长度给data
+    write((char*) &header_len, 4);//写入这个header的长度
+    write((char*) header_buffer.get(), header_len);//写入数据
     write((char*) &data_len, 4);
     
     // Pad the file header record out
     if (data_len > 0) {
         string padding;
         padding.resize(data_len, ' ');
-        write(padding);
+        write(padding);//全部填充空白
     }
 }
 
@@ -431,17 +437,21 @@ uint32_t Bag::getChunkOffset() const {
 
 void Bag::startWritingChunk(Time time) {
     // Initialize chunk info
-    curr_chunk_info_.pos        = file_.getOffset();
+    //初始化块消息
+    curr_chunk_info_.pos        = file_.getOffset();//获取文件的偏移量
     curr_chunk_info_.start_time = time;
     curr_chunk_info_.end_time   = time;
 
     // Write the chunk header, with a place-holder for the data sizes (we'll fill in when the chunk is finished)
+    //写入chunk头,有占位符，等待chunk完成时写入
     writeChunkHeader(compression_, 0, 0);
 
     // Turn on compressed writing
+    //如果是压缩模式开启对应的压缩模式
     file_.setWriteMode(compression_);
     
     // Record where the data section of this chunk started
+    //记录这个chunk的文件偏移位置
     curr_chunk_data_pos_ = file_.getOffset();
 
     chunk_open_ = true;
@@ -496,9 +506,9 @@ void Bag::writeChunkHeader(CompressionType compression, uint32_t compressed_size
     header[OP_FIELD_NAME]          = toHeaderString(&OP_CHUNK);
     header[COMPRESSION_FIELD_NAME] = chunk_header.compression;
     header[SIZE_FIELD_NAME]        = toHeaderString(&chunk_header.uncompressed_size);
-    writeHeader(header);
+    writeHeader(header);//写入header
 
-    writeDataLength(chunk_header.compressed_size);
+    writeDataLength(chunk_header.compressed_size);//写入数据长度
 }
 
 void Bag::readChunkHeader(ChunkHeader& chunk_header) const {
@@ -997,11 +1007,13 @@ bool Bag::isOp(M_string& fields, uint8_t reqOp) const {
 void Bag::writeHeader(M_string const& fields) {
     boost::shared_array<uint8_t> header_buffer;
     uint32_t header_len;
+    //map转buffer
     ros::Header::write(fields, header_buffer, header_len);
-    write((char*) &header_len, 4);
-    write((char*) header_buffer.get(), header_len);
+    write((char*) &header_len, 4);//记录长度
+    write((char*) header_buffer.get(), header_len);//写入数据
 }
 
+//写入数据长度
 void Bag::writeDataLength(uint32_t data_len) {
     write((char*) &data_len, 4);
 }
@@ -1013,11 +1025,11 @@ void Bag::appendHeaderToBuffer(Buffer& buf, M_string const& fields) {
 
     uint32_t offset = buf.getSize();
 
-    buf.setSize(buf.getSize() + 4 + header_len);
+    buf.setSize(buf.getSize() + 4 + header_len);//重新修改buffer的大小，包括一个长度，一个headerbuffer
 
-    memcpy(buf.getData() + offset, &header_len, 4);
-    offset += 4;
-    memcpy(buf.getData() + offset, header_buffer.get(), header_len);
+    memcpy(buf.getData() + offset, &header_len, 4);//复制长度到buffer
+    offset += 4;//修改当前修改的指针
+    memcpy(buf.getData() + offset, header_buffer.get(), header_len);//复制数据到buffer
 }
 
 void Bag::appendDataLengthToBuffer(Buffer& buf, uint32_t data_len) {

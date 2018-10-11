@@ -50,6 +50,7 @@ typedef boost::shared_ptr<Connection> ConnectionPtr;
 class ROSCPP_DECL SubscriberLink : public boost::enable_shared_from_this<SubscriberLink>
 {
 public:
+  //内部类
   class Stats
   {
   public:
@@ -86,7 +87,7 @@ public:
 protected:
   bool verifyDatatype(const std::string &datatype);
 
-  PublicationWPtr parent_;
+  PublicationWPtr parent_;//使用weak_ptr防止循环引用产生
   unsigned int connection_id_;
   std::string destination_caller_id_;
   Stats stats_;

@@ -60,6 +60,8 @@ typedef boost::shared_ptr<ConnectionManager> ConnectionManagerPtr;
 class SubscriptionCallbackHelper;
 typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelperPtr;
 
+
+//话题管理
 class ROSCPP_DECL TopicManager
 {
 public:
@@ -70,23 +72,27 @@ public:
 
   void start();
   void shutdown();
-
+  //订阅
   bool subscribe(const SubscribeOptions& ops);
+  //取消订阅
   bool unsubscribe(const std::string &_topic, const SubscriptionCallbackHelperPtr& helper);
-
+  //发布话题
   bool advertise(const AdvertiseOptions& ops, const SubscriberCallbacksPtr& callbacks);
+  //取消发布
   bool unadvertise(const std::string &topic, const SubscriberCallbacksPtr& callbacks);
 
   /** @brief Get the list of topics advertised by this node
    *
    * @param[out] topics The advertised topics
    */
+  //获取这个节点发布的所有话题
   void getAdvertisedTopics(V_string& topics);
 
   /** @brief Get the list of topics subscribed to by this node
    *
    * @param[out] The subscribed topics
    */
+  //获取这个节点订阅的所有话题
   void getSubscribedTopics(V_string& topics);
 
   /** @brief Lookup an advertised topic.
@@ -99,6 +105,7 @@ public:
    *
    * @returns Pointer to the matching Publication, NULL if none is found.
    */
+  //由名子查找发布的话题
   PublicationPtr lookupPublication(const std::string& topic);
 
   /** @brief Return the number of subscribers a node has for a particular topic:
@@ -107,6 +114,7 @@ public:
    *
    * @return number of subscribers
    */
+  //返回订阅这个节点的这个话题的所有订阅者
   size_t getNumSubscribers(const std::string &_topic);
   size_t getNumSubscriptions();
 
@@ -116,12 +124,14 @@ public:
    * \param _topic the topic name to check
    * \return the number of subscribers
    */
+  //获得在这个节点上的所有发布者
   size_t getNumPublishers(const std::string &_topic);
 
+  //在topic上发布消息
   template<typename M>
   void publish(const std::string& topic, const M& message)
   {
-    using namespace serialization;
+    using namespace serialization;//函数中使用命名空间，防止命名空间污染
 
     SerializedMessage m;
     publish(topic, boost::bind(serializeMessage<M>, boost::ref(message)), m);
@@ -129,7 +139,7 @@ public:
 
   void publish(const std::string &_topic, const boost::function<SerializedMessage(void)>& serfunc, SerializedMessage& m);
 
-  void incrementSequence(const std::string &_topic);
+  void incrementSequence(const std::string &_topic);//??
   bool isLatched(const std::string& topic);
 
 private:
@@ -219,11 +229,11 @@ private:
   bool isShuttingDown() { return shutting_down_; }
 
   boost::mutex subs_mutex_;
-  L_Subscription subscriptions_;
+  L_Subscription subscriptions_;//这个节点订阅的所有话题
 
   boost::recursive_mutex advertised_topics_mutex_;
-  V_Publication advertised_topics_;
-  std::list<std::string> advertised_topic_names_;
+  V_Publication advertised_topics_;//节点注册的所有topic
+  std::list<std::string> advertised_topic_names_;//注册的所有topic名称
   boost::mutex advertised_topic_names_mutex_;
 
   volatile bool shutting_down_;

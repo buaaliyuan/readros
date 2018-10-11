@@ -76,7 +76,7 @@ public:
   , name_(function_name)
   , func_(cb)
   { }
-
+  //命令模式提供执行接口
   void execute(XmlRpcValue &params, XmlRpcValue &result)
   {
     func_(params, result);
@@ -93,10 +93,11 @@ void getPid(const XmlRpcValue& params, XmlRpcValue& result)
   result = xmlrpc::responseInt(1, "", (int)getpid());
 }
 
-const ros::WallDuration CachedXmlRpcClient::s_zombie_time_(30.0); // reap after 30 seconds
+const ros::WallDuration CachedXmlRpcClient::s_zombie_time_(30.0); // reap after 30 seconds，客户端超过30s未使用，则回收 
 
 const XMLRPCManagerPtr& XMLRPCManager::instance()
 {
+  //单例模式一种实现方式：局部静态智能指针
   static XMLRPCManagerPtr xmlrpc_manager = boost::make_shared<XMLRPCManager>();
   return xmlrpc_manager;
 }
@@ -117,23 +118,24 @@ void XMLRPCManager::start()
 {
   shutting_down_ = false;
   port_ = 0;
-  bind("getPid", getPid);
+  bind("getPid", getPid);//绑定一个getPid函数
 
-  bool bound = server_.bindAndListen(0);
+  bool bound = server_.bindAndListen(0);//为服务器创建一个listen socket，用于监听连接到该服务器的客户端
   (void) bound;
   ROS_ASSERT(bound);
-  port_ = server_.get_port();
+  port_ = server_.get_port();//该服务器监听端口号
   ROS_ASSERT(port_ != 0);
 
   std::stringstream ss;
   ss << "http://" << network::getHost() << ":" << port_ << "/";
   uri_ = ss.str();
-
+  //启动服务器线程
   server_thread_ = boost::thread(boost::bind(&XMLRPCManager::serverThreadFunc, this));
 }
 
 void XMLRPCManager::shutdown()
-{
+{ 
+  //多线程防止多次关闭客户端
   if (shutting_down_)
   {
     return;
@@ -145,6 +147,7 @@ void XMLRPCManager::shutdown()
   server_.close();
 
   // kill the last few clients that were started in the shutdown process
+  //退出时，杀死未使用的客户端
   {
     boost::mutex::scoped_lock lock(clients_mutex_);
 
@@ -165,6 +168,7 @@ void XMLRPCManager::shutdown()
   }
 
   // Wait for the clients that are in use to finish and remove themselves from clients_
+  ///在使用中的客户端要等待使用结束，在将他们移除
   for (int wait_count = 0; !clients_.empty() && wait_count < 10; wait_count++)
   {
     ROSCPP_LOG_DEBUG("waiting for xmlrpc connection to finish...");
@@ -172,8 +176,10 @@ void XMLRPCManager::shutdown()
   }
 
   boost::mutex::scoped_lock lock(functions_mutex_);
-  functions_.clear();
+  functions_.clear();//清空所有注册的服务函数
 
+
+  //将各个连接从分配器中删除???
   {
     S_ASyncXMLRPCConnection::iterator it = connections_.begin();
     S_ASyncXMLRPCConnection::iterator end = connections_.end();
@@ -183,7 +189,7 @@ void XMLRPCManager::shutdown()
     }
   }
 
-  connections_.clear();
+  connections_.clear();//清空该服务器与其他客户端已经建立起来的连接
 
   {
     boost::mutex::scoped_lock lock(added_connections_mutex_);
@@ -246,11 +252,13 @@ bool XMLRPCManager::validateXmlrpcResponse(const std::string& method, XmlRpcValu
 
 void XMLRPCManager::serverThreadFunc()
 {
+  //启动的线程要屏蔽linux信号机制，否则可能导致线程崩溃，猜测
   disableAllSignalsInThisThread();
 
   while(!shutting_down_)
   {
     {
+      //将added_connections添加到connections，其实也是一个buffer增加吞吐量的例子
       boost::mutex::scoped_lock lock(added_connections_mutex_);
       S_ASyncXMLRPCConnection::iterator it = added_connections_.begin();
       S_ASyncXMLRPCConnection::iterator end = added_connections_.end();
@@ -264,6 +272,7 @@ void XMLRPCManager::serverThreadFunc()
     }
 
     // Update the XMLRPC server, blocking for at most 100ms in select()
+    //调用服务器的work函数，主要作用是：如果有新连接到来则接受并处理，如果有客户端请求处理并且响应
     {
       boost::mutex::scoped_lock lock(functions_mutex_);
       server_.work(0.1);
@@ -291,6 +300,7 @@ void XMLRPCManager::serverThreadFunc()
       }
     }
 
+    //动态的删除一些与其他客户端的连接
     {
       boost::mutex::scoped_lock lock(removed_connections_mutex_);
       S_ASyncXMLRPCConnection::iterator it = removed_connections_.begin();
@@ -309,13 +319,15 @@ void XMLRPCManager::serverThreadFunc()
 XmlRpcClient* XMLRPCManager::getXMLRPCClient(const std::string &host, const int port, const std::string &uri)
 {
   // go through our vector of clients and grab the first available one
+  //创建一个xml客户端出来以供使用
   XmlRpcClient *c = NULL;
 
   boost::mutex::scoped_lock lock(clients_mutex_);
-
+  //首先从cached client中查找
   for (V_CachedXmlRpcClient::iterator i = clients_.begin();
        !c && i != clients_.end(); )
   {
+    //找到一个cache中不再使用中的客户端
     if (!i->in_use_)
     {
       // see where it's pointing
@@ -329,14 +341,15 @@ XmlRpcClient* XMLRPCManager::getXMLRPCClient(const std::string &host, const int 
         i->last_use_time_ = SteadyTime::now();
         break;
       }
-      else if (i->last_use_time_ + CachedXmlRpcClient::s_zombie_time_ < SteadyTime::now())
+      else if (i->last_use_time_ + CachedXmlRpcClient::s_zombie_time_ < SteadyTime::now())//清除不再使用中的，超过了僵尸时间的客户端
       {
         // toast this guy. he's dead and nobody is reusing him.
-        delete i->client_;
+        delete i->client_;//删除这个客户端
         i = clients_.erase(i);
       }
       else
       {
+        //继续下一个，这个客户端不是需要的，也没有超过“死亡时间”，继续测试下一个
         ++i; // move along. this guy isn't dead yet.
       }
     }
@@ -349,11 +362,12 @@ XmlRpcClient* XMLRPCManager::getXMLRPCClient(const std::string &host, const int 
   if (!c)
   {
     // allocate a new one
+    //如果没有找到缓存的客户端就创建一个新的
     c = new XmlRpcClient(host.c_str(), port, uri.c_str());
     CachedXmlRpcClient mc(c);
     mc.in_use_ = true;
-    mc.last_use_time_ = SteadyTime::now();
-    clients_.push_back(mc);
+    mc.last_use_time_ = SteadyTime::now();//记录最后被使用的时间
+    clients_.push_back(mc);//加入到缓存中，这样防止了
     //ROS_INFO("%d xmlrpc clients allocated\n", xmlrpc_clients.size());
   }
   // ONUS IS ON THE RECEIVER TO UNSET THE IN_USE FLAG
@@ -410,6 +424,7 @@ bool XMLRPCManager::bind(const std::string& function_name, const XMLRPCFunc& cb)
   info.name = function_name;
   info.function = cb;
   info.wrapper.reset(new XMLRPCCallWrapper(function_name, cb, &server_));
+  //创建一个wrapper加入到服务器的函数map中
   functions_[function_name] = info;
 
   return true;

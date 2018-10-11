@@ -52,8 +52,8 @@ CompressionType UncompressedStream::getCompressionType() const {
 }
 
 void UncompressedStream::write(void* ptr, size_t size) {
-    size_t result = fwrite(ptr, 1, size, getFilePointer());
-    if (result != size)
+    size_t result = fwrite(ptr, 1, size, getFilePointer());//只是普通的写入
+    if (result != size)//校验写入数量
         throw BagIOException((format("Error writing to file: writing %1% bytes, wrote %2% bytes") % size % result).str());
 
     advanceOffset(size);
@@ -63,6 +63,7 @@ void UncompressedStream::read(void* ptr, size_t size) {
     size_t nUnused = (size_t) getUnusedLength();
     char* unused = getUnused();
 
+    //有未使用的数据，需要根据未使用数据的大小来判别
     if (nUnused > 0) {
         // We have unused data from the last compressed read
         if (nUnused == size) {
@@ -91,8 +92,8 @@ void UncompressedStream::read(void* ptr, size_t size) {
             // nUnused_ > size
             memcpy(ptr, unused, size);
 
-            setUnused(unused + size);
-            setUnusedLength(nUnused - size);
+            setUnused(unused + size);//改变指针位置
+            setUnusedLength(nUnused - size);//改变计数
         }
     }
     
@@ -101,7 +102,7 @@ void UncompressedStream::read(void* ptr, size_t size) {
     if ((size_t) result != size)
         throw BagIOException((format("Error reading from file: wanted %1% bytes, read %2% bytes") % size % result).str());
 
-    advanceOffset(size);
+    advanceOffset(size);//改变文件位置
 }
 
 void UncompressedStream::decompress(uint8_t* dest, unsigned int dest_len, uint8_t* source, unsigned int source_len) {

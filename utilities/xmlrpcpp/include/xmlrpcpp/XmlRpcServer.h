@@ -40,7 +40,7 @@ namespace XmlRpc {
 
 
   //! A class to handle XML RPC requests
-  //用来处理xmlrpc请求
+  //用来处理xmlrpc请求，包括连接请求和调用请求
   class XMLRPCPP_DECL XmlRpcServer : public XmlRpcSource {
   public:
     //! Create a server object.
@@ -106,6 +106,7 @@ namespace XmlRpc {
     virtual unsigned acceptConnection();
 
     //! Create a new connection object for processing requests from a specific client.
+    //创建一个连接用来处理客户端到来的请求
     virtual XmlRpcServerConnection* createConnection(int socket);
 
     //! Count number of free file descriptors
@@ -116,7 +117,7 @@ namespace XmlRpc {
     bool _introspectionEnabled;
 
     // Event dispatcher
-	//事件分发器
+	//事件分发器，负责对事件进行分发处理
     XmlRpcDispatch _disp;
 
     // Collection of methods. This could be a set keyed on method name if we wanted...

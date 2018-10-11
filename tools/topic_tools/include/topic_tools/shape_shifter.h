@@ -48,6 +48,7 @@
 namespace topic_tools
 {
  
+//创建异常类型，一般只需要一个msg
 class ShapeShifterException : public ros::Exception
 {
 public:
@@ -99,9 +100,9 @@ private:
   std::string md5, datatype, msg_def, latching;
   bool typed;
 
-  uint8_t *msgBuf;
-  uint32_t msgBufUsed;
-  uint32_t msgBufAlloc;
+  uint8_t *msgBuf;//消息buffer
+  uint32_t msgBufUsed;//使用的buf
+  uint32_t msgBufAlloc;//分配的大小
   
 };
   
@@ -112,8 +113,11 @@ private:
 namespace ros {
 namespace message_traits {
 
-template <> struct IsMessage<topic_tools::ShapeShifter> : TrueType { };
-template <> struct IsMessage<const topic_tools::ShapeShifter> : TrueType { };
+template <> 
+struct IsMessage<topic_tools::ShapeShifter> : TrueType { };
+
+template <> 
+struct IsMessage<const topic_tools::ShapeShifter> : TrueType { };
 
 template<>
 struct MD5Sum<topic_tools::ShapeShifter>
@@ -219,6 +223,7 @@ void ShapeShifter::write(Stream& stream) const {
     memcpy(stream.advance(msgBufUsed), msgBuf, msgBufUsed);
 }
 
+//模板定义放在头文件中
 template<typename Stream>
 void ShapeShifter::read(Stream& stream)
 {

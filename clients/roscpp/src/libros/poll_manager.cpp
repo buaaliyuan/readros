@@ -97,6 +97,7 @@ void PollManager::threadFunc()
 boost::signals2::connection PollManager::addPollThreadListener(const VoidFunc& func)
 {
   boost::recursive_mutex::scoped_lock lock(signal_mutex_);
+  //绑定函数到这个信号上
   return poll_signal_.connect(func);
 }
 

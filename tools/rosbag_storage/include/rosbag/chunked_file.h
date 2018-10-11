@@ -48,6 +48,7 @@
 namespace rosbag {
 
 //! ChunkedFile reads and writes files which contain interleaved chunks of compressed and uncompressed data.
+//ChunkedFile用于读取或者写入文件，文件中包含交错的压缩和未压缩的数据
 class ROSBAG_STORAGE_DECL ChunkedFile
 {
     friend class Stream;
@@ -56,12 +57,13 @@ public:
     ChunkedFile();
     ~ChunkedFile();
 
+    //打开文的模式
     void openWrite    (std::string const& filename);            //!< open file for writing
     void openRead     (std::string const& filename);            //!< open file for reading
     void openReadWrite(std::string const& filename);            //!< open file for reading & writing
 
     void close();                                               //!< close the file
-
+    //获取文件的状态和信息
     std::string getFileName()          const;                   //!< return path of currently open file
     uint64_t    getOffset()            const;                   //!< return current offset from the beginning of the file
     uint32_t    getCompressedBytesIn() const;                   //!< return the number of bytes written to current compressed stream
@@ -72,6 +74,7 @@ public:
     void        setWriteMode(CompressionType type);
 
     // File I/O
+    //文件读写操作
     void        write(std::string const& s);
     void        write(void* ptr, size_t size);                          //!< write size bytes from ptr to the file
     void        read(void* ptr, size_t size);                           //!< read size bytes from the file into ptr
@@ -82,6 +85,7 @@ public:
     void        swap(ChunkedFile& other);
 
 private:
+    //不可复制、赋值
     ChunkedFile(const ChunkedFile&);
     ChunkedFile& operator=(const ChunkedFile&);
 
@@ -89,19 +93,20 @@ private:
     void clearUnused();
 
 private:
-    std::string filename_;       //!< path to file
-    FILE*       file_;           //!< file pointer
-    uint64_t    offset_;         //!< current position in the file
-    uint64_t    compressed_in_;  //!< number of bytes written to current compressed stream
-    char*       unused_;         //!< extra data read by compressed stream
-    int         nUnused_;        //!< number of bytes of extra data read by compressed stream
+    std::string filename_;       //!< path to file，文件路径
+    FILE*       file_;           //!< file pointer，文件指针，使用的时带缓冲的标准文件
+    uint64_t    offset_;         //!< current position in the file，当前文件的指针
+    uint64_t    compressed_in_;  //!< number of bytes written to current compressed stream，已经写到当前压缩流中的字节数量
+    char*       unused_;         //!< extra data read by compressed stream，被压缩流读取的额外数据
+    int         nUnused_;        //!< number of bytes of extra data read by compressed stream，被压缩流读取的字节数量
 
-    boost::shared_ptr<StreamFactory> stream_factory_;
+    boost::shared_ptr<StreamFactory> stream_factory_;//流工厂
 
     boost::shared_ptr<Stream> read_stream_;
     boost::shared_ptr<Stream> write_stream_;
 };
 
+//为何写一个全局swap
 inline void swap(ChunkedFile& a, ChunkedFile& b) {
     a.swap(b);
 }

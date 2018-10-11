@@ -436,7 +436,7 @@ void Publication::processPublishQueue()
     {
       return;
     }
-
+    //将成员变量内容拷贝到局部变量，防止锁阻塞
     queue.insert(queue.end(), publish_queue_.begin(), publish_queue_.end());
     publish_queue_.clear();
   }

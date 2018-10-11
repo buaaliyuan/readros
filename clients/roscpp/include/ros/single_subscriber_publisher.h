@@ -40,7 +40,8 @@ namespace ros
 /**
  * \brief Allows publication of a message to a single subscriber. Only available inside subscriber connection callbacks
  */
-class ROSCPP_DECL SingleSubscriberPublisher : public boost::noncopyable
+//允许发布消息到一个单独的订阅者
+class ROSCPP_DECL SingleSubscriberPublisher : public boost::noncopyable//禁止复制
 {
 public:
   SingleSubscriberPublisher(const SubscriberLinkPtr& link);
@@ -48,7 +49,7 @@ public:
 
   /**
    * \brief Publish a message on the topic associated with this Publisher.
-   *
+   *发布
    * This version of publish will allow fast intra-process message-passing in the future,
    * so you may not mutate the message after it has been passed in here (since it will be
    * passed directly into a callback function)

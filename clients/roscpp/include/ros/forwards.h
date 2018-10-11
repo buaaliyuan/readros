@@ -99,6 +99,8 @@ class CallbackQueueInterface;
 class CallbackInterface;
 typedef boost::shared_ptr<CallbackInterface> CallbackInterfacePtr;
 
+
+
 struct SubscriberCallbacks
 {
   SubscriberCallbacks(const SubscriberStatusCallback& connect = SubscriberStatusCallback(),

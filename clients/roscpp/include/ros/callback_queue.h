@@ -68,6 +68,7 @@ namespace ros
 /**
  * \brief This is the default implementation of the ros::CallbackQueueInterface
  */
+//这个是默认的callbackqueue的实现
 class ROSCPP_DECL CallbackQueue : public CallbackQueueInterface
 {
 public:
@@ -89,6 +90,7 @@ public:
    * \brief Pop a single callback off the front of the queue and invoke it.  If the callback was not ready to be called,
    * pushes it back onto the queue.
    */
+  //从队列中弹出一个回调，并且调用，如果回调没有ready重新放回队列
   CallOneResult callOne()
   {
     return callOne(ros::WallDuration());
@@ -102,6 +104,7 @@ public:
    * \param timeout The amount of time to wait for a callback to be available.  If there is already a callback available,
    * this parameter does nothing.
    */
+  //
   CallOneResult callOne(ros::WallDuration timeout);
 
   /**
@@ -123,6 +126,7 @@ public:
   /**
    * \brief returns whether or not the queue is empty
    */
+  //查看回调队列是否为空
   bool empty() { return isEmpty(); }
   /**
    * \brief returns whether or not the queue is empty
@@ -131,6 +135,7 @@ public:
   /**
    * \brief Removes all callbacks from the queue.  Does \b not wait for calls currently in progress to finish.
    */
+  //清空回调队列
   void clear();
 
   /**
@@ -155,10 +160,10 @@ protected:
   struct IDInfo
   {
     uint64_t id;
-    boost::shared_mutex calling_rw_mutex;
+    boost::shared_mutex calling_rw_mutex;//读写锁
   };
   typedef boost::shared_ptr<IDInfo> IDInfoPtr;
-  typedef std::map<uint64_t, IDInfoPtr> M_IDInfo;
+  typedef std::map<uint64_t, IDInfoPtr> M_IDInfo;//map
 
   IDInfoPtr getIDInfo(uint64_t id);
 
@@ -174,13 +179,13 @@ protected:
   };
   typedef std::list<CallbackInfo> L_CallbackInfo;
   typedef std::deque<CallbackInfo> D_CallbackInfo;
-  D_CallbackInfo callbacks_;
+  D_CallbackInfo callbacks_;//所有的callback
   size_t calling_;
   boost::mutex mutex_;
   boost::condition_variable condition_;
 
   boost::mutex id_info_mutex_;
-  M_IDInfo id_info_;
+  M_IDInfo id_info_;//id信息，是一个map
 
   struct TLS
   {
@@ -189,10 +194,10 @@ protected:
     , cb_it(callbacks.end())
     {}
     uint64_t calling_in_this_thread;
-    D_CallbackInfo callbacks;
+    D_CallbackInfo callbacks;//存储了所有的回调
     D_CallbackInfo::iterator cb_it;
   };
-  boost::thread_specific_ptr<TLS> tls_;
+  boost::thread_specific_ptr<TLS> tls_;//线程局部存储
 
   bool enabled_;
 };

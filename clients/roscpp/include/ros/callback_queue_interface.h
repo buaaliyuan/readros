@@ -45,6 +45,7 @@ namespace ros
 /**
  * \brief Abstract interface for items which can be added to a CallbackQueueInterface
  */
+//抽象接口，可以添加到CallbackQueue
 class ROSCPP_DECL CallbackInterface
 {
 public:
@@ -64,11 +65,13 @@ public:
    * \brief Call this callback
    * \return The result of the call
    */
+  //调用这个回调，并获取调用后的状态
   virtual CallResult call() = 0;
   /**
    * \brief Provides the opportunity for specifying that a callback is not ready to be called
    * before call() actually takes place.
    */
+  //在调用call之前告知知否准备好
   virtual bool ready() { return true; }
 };
 typedef boost::shared_ptr<CallbackInterface> CallbackInterfacePtr;
@@ -79,6 +82,7 @@ typedef boost::shared_ptr<CallbackInterface> CallbackInterfacePtr;
  * Allows you to inherit and provide your own implementation that can be used instead of our
  * default CallbackQueue
  */
+//抽象接口类，用于处理roscpp中的所有回调
 class CallbackQueueInterface
 {
 public:
@@ -88,11 +92,13 @@ public:
    * \brief Add a callback, with an optional owner id.  The owner id can be used to
    * remove a set of callbacks from this queue.
    */
+  //添加一个回调，并且给一个ownerid，用于从队列中移除一个集合
   virtual void addCallback(const CallbackInterfacePtr& callback, uint64_t owner_id = 0) = 0;
 
   /**
    * \brief Remove all callbacks associated with an owner id
    */
+  //移除同一个ownerid的回调集合
   virtual void removeByID(uint64_t owner_id) = 0;
 };
 

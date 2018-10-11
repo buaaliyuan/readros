@@ -80,6 +80,8 @@
 
 namespace rosbag {
 
+
+//bag操作模式
 namespace bagmode
 {
     //! The possible modes to open a bag in
@@ -133,11 +135,11 @@ public:
     //! Close the bag file
     void close();
 
-    std::string     getFileName()     const;                      //!< Get the filename of the bag
-    BagMode         getMode()         const;                      //!< Get the mode the bag is in
-    uint32_t        getMajorVersion() const;                      //!< Get the major-version of the open bag file
-    uint32_t        getMinorVersion() const;                      //!< Get the minor-version of the open bag file
-    uint64_t        getSize()         const;                      //!< Get the current size of the bag file (a lower bound)
+    std::string     getFileName()     const;                      //!< Get the filename of the bag，获得bag的文件名
+    BagMode         getMode()         const;                      //!< Get the mode the bag is in，获得 bag读写模式
+    uint32_t        getMajorVersion() const;                      //!< Get the major-version of the open bag file，获得bag文件的主版本号
+    uint32_t        getMinorVersion() const;                      //!< Get the minor-version of the open bag file，获得bag文件的次版本号
+    uint64_t        getSize()         const;                      //!< Get the current size of the bag file (a lower bound)，获取bag文件的大小
 
     void            setCompression(CompressionType compression);  //!< Set the compression method to use for writing chunks
     CompressionType getCompression() const;                       //!< Get the compression method to use for writing chunks
@@ -145,6 +147,7 @@ public:
     uint32_t        getChunkThreshold() const;                    //!< Get the threshold for creating new chunks
 
     //! Set encryptor of the bag file
+    //设置加密机
     /*!
      * \param plugin_name The name of the encryptor plugin
      * \param plugin_param The string parameter to be passed to the plugin initialization method
@@ -317,10 +320,10 @@ private:
     int                 version_;
     CompressionType     compression_;
     uint32_t            chunk_threshold_;
-    uint32_t            bag_revision_;
+    uint32_t            bag_revision_;//??
 
     uint64_t file_size_;
-    uint64_t file_header_pos_;
+    uint64_t file_header_pos_;//存储文件头位置
     uint64_t index_data_pos_;
     uint32_t connection_count_;
     uint32_t chunk_count_;
@@ -360,7 +363,7 @@ private:
 } // namespace rosbag
 
 #include "rosbag/message_instance.h"
-
+//模板必须和头文件放在一起
 namespace rosbag {
 
 // Templated method definitions
@@ -385,6 +388,8 @@ void Bag::write(std::string const& topic, ros::Time const& time, boost::shared_p
     doWrite(topic, time, *msg, connection_header);
 }
 
+
+//将数据转为string的buffer，很有意思，而且是用的模板
 template<typename T>
 std::string Bag::toHeaderString(T const* field) const {
     return std::string((char*) field, sizeof(T));
@@ -521,7 +526,7 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
     }
 
     // Whenever we write we increment our revision
-    bag_revision_++;
+    bag_revision_++;//??
 
     // Get ID for connection header
     ConnectionInfo* connection_info = NULL;
@@ -566,10 +571,12 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
         file_size_ = file_.getOffset();
 
         // Write the chunk header if we're starting a new chunk
+        //写入一个chunk头
         if (!chunk_open_)
             startWritingChunk(time);
 
         // Write connection info record, if necessary
+        //写入连接信息到记录
         if (connection_info == NULL) {
             connection_info = new ConnectionInfo();
             connection_info->id       = conn_id;
@@ -599,7 +606,9 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
         index_entry.offset    = getChunkOffset();
 
         std::multiset<IndexEntry>& chunk_connection_index = curr_chunk_connection_indexes_[connection_info->id];
+        //将数据按照connection_info的id来存储，存储使用set，重载的<号可以自动排序
         chunk_connection_index.insert(chunk_connection_index.end(), index_entry);
+
         std::multiset<IndexEntry>& connection_index = connection_indexes_[connection_info->id];
         connection_index.insert(connection_index.end(), index_entry);
 
@@ -625,15 +634,17 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
 
 template<class T>
 void Bag::writeMessageDataRecord(uint32_t conn_id, ros::Time const& time, T const& msg) {
+    //首先创建一个map数据结构存储这个record的一些属性
     ros::M_string header;
-    header[OP_FIELD_NAME]         = toHeaderString(&OP_MSG_DATA);
+    header[OP_FIELD_NAME]         = toHeaderString(&OP_MSG_DATA);//message data
     header[CONNECTION_FIELD_NAME] = toHeaderString(&conn_id);
     header[TIME_FIELD_NAME]       = toHeaderString(&time);
 
     // Assemble message in memory first, because we need to write its length
+    //计算序列化后消息的长度
     uint32_t msg_ser_len = ros::serialization::serializationLength(msg);
 
-    record_buffer_.setSize(msg_ser_len);
+    record_buffer_.setSize(msg_ser_len);//分配一个buffer
     
     ros::serialization::OStream s(record_buffer_.getData(), msg_ser_len);
 
@@ -649,9 +660,9 @@ void Bag::writeMessageDataRecord(uint32_t conn_id, ros::Time const& time, T cons
     CONSOLE_BRIDGE_logDebug("Writing MSG_DATA [%llu:%d]: conn=%d sec=%d nsec=%d data_len=%d",
               (unsigned long long) file_.getOffset(), getChunkOffset(), conn_id, time.sec, time.nsec, msg_ser_len);
 
-    writeHeader(header);
-    writeDataLength(msg_ser_len);
-    write((char*) record_buffer_.getData(), msg_ser_len);
+    writeHeader(header);//写入头
+    writeDataLength(msg_ser_len);//写入数据长度
+    write((char*) record_buffer_.getData(), msg_ser_len);//
     
     // todo: use better abstraction than appendHeaderToBuffer
     appendHeaderToBuffer(outgoing_chunk_buffer_, header);

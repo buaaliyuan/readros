@@ -66,12 +66,15 @@ namespace rosbag {
 class ROSBAG_DECL OutgoingMessage
 {
 public:
-    OutgoingMessage(std::string const& _topic, topic_tools::ShapeShifter::ConstPtr _msg, boost::shared_ptr<ros::M_string> _connection_header, ros::Time _time);
+    OutgoingMessage(std::string const& _topic, 
+                    topic_tools::ShapeShifter::ConstPtr _msg, 
+                    boost::shared_ptr<ros::M_string> _connection_header, 
+                    ros::Time _time);
 
-    std::string                         topic;
-    topic_tools::ShapeShifter::ConstPtr msg;
-    boost::shared_ptr<ros::M_string>    connection_header;
-    ros::Time                           time;
+    std::string                         topic;//话题名称
+    topic_tools::ShapeShifter::ConstPtr msg;//消息内容
+    boost::shared_ptr<ros::M_string>    connection_header;//??
+    ros::Time                           time;//时间
 };
 
 class ROSBAG_DECL OutgoingQueue
@@ -163,14 +166,17 @@ private:
     std::string                   write_filename_;
     std::list<std::string>        current_files_;
 
-    std::set<std::string>         currently_recording_;  //!< set of currenly recording topics
+    std::set<std::string>         currently_recording_;  //!< set of currenly recording topics，当前所有的topic名称
     int                           num_subscribers_;      //!< used for book-keeping of our number of subscribers
 
     int                           exit_code_;            //!< eventual exit code
 
+    //三个配合使用消息队列
     boost::condition_variable_any queue_condition_;      //!< conditional variable for queue
     boost::mutex                  queue_mutex_;          //!< mutex for queue
-    std::queue<OutgoingMessage>*  queue_;                //!< queue for storing
+    std::queue<OutgoingMessage>*  queue_;                //!< queue for storing，存储队列
+
+
     uint64_t                      queue_size_;           //!< queue size
     uint64_t                      max_queue_size_;       //!< max queue size
 
@@ -183,6 +189,7 @@ private:
     ros::Time                     start_time_;
 
     bool                          writing_enabled_;
+    //主要用于降低检测频率
     boost::mutex                  check_disk_mutex_;
     ros::WallTime                 check_disk_next_;
     ros::WallTime                 warn_next_;
