@@ -322,20 +322,21 @@ private:
     uint32_t            chunk_threshold_;
     uint32_t            bag_revision_;//??
 
-    uint64_t file_size_;
+    uint64_t file_size_;//文件大小
     uint64_t file_header_pos_;//存储文件头位置
     uint64_t index_data_pos_;
     uint32_t connection_count_;
     uint32_t chunk_count_;
     
     // Current chunk
+    //当前记录的chunk信息
     bool      chunk_open_;
     ChunkInfo curr_chunk_info_;
     uint64_t  curr_chunk_data_pos_;
 
-    std::map<std::string, uint32_t>                topic_connection_ids_;
-    std::map<ros::M_string, uint32_t>              header_connection_ids_;
-    std::map<uint32_t, ConnectionInfo*>            connections_;
+    std::map<std::string, uint32_t>                topic_connection_ids_;//topic->id
+    std::map<ros::M_string, uint32_t>              header_connection_ids_;//map->id
+    std::map<uint32_t, ConnectionInfo*>            connections_;//id->ConnectionInfo
 
     std::vector<ChunkInfo>                         chunks_;
 
@@ -392,7 +393,7 @@ void Bag::write(std::string const& topic, ros::Time const& time, boost::shared_p
 //将数据转为string的buffer，很有意思，而且是用的模板
 template<typename T>
 std::string Bag::toHeaderString(T const* field) const {
-    return std::string((char*) field, sizeof(T));
+    return std::string((char*) field, sizeof(T));//将char给string管理
 }
 
 template<typename T>
@@ -529,19 +530,20 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
     bag_revision_++;//??
 
     // Get ID for connection header
+    //与每个topic建立起来的连接都应该有一个对于该连接的描述
     ConnectionInfo* connection_info = NULL;
     uint32_t conn_id = 0;
-    if (!connection_header) {
+    if (!connection_header) {//如果没有connection header
         // No connection header: we'll manufacture one, and store by topic
 
         std::map<std::string, uint32_t>::iterator topic_connection_ids_iter = topic_connection_ids_.find(topic);
-        if (topic_connection_ids_iter == topic_connection_ids_.end()) {
+        if (topic_connection_ids_iter == topic_connection_ids_.end()) {//如果当前topic并没有存在于topic_connection_ids_中
             conn_id = connections_.size();
-            topic_connection_ids_[topic] = conn_id;
+            topic_connection_ids_[topic] = conn_id;//每个topic都分配一个id，存储到map中
         }
         else {
             conn_id = topic_connection_ids_iter->second;
-            connection_info = connections_[conn_id];
+            connection_info = connections_[conn_id];//查找对应连接的信息
         }
     }
     else {
@@ -555,13 +557,13 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
         connection_header_copy["topic"] = topic;
 
         std::map<ros::M_string, uint32_t>::iterator header_connection_ids_iter = header_connection_ids_.find(connection_header_copy);
-        if (header_connection_ids_iter == header_connection_ids_.end()) {
-            conn_id = connections_.size();
-            header_connection_ids_[connection_header_copy] = conn_id;
+        if (header_connection_ids_iter == header_connection_ids_.end()) {//如果没有则添加
+            conn_id = connections_.size();//conn_id为connections_的大小
+            header_connection_ids_[connection_header_copy] = conn_id;//将topic->conn_id的map添加
         }
         else {
             conn_id = header_connection_ids_iter->second;
-            connection_info = connections_[conn_id];
+            connection_info = connections_[conn_id];//找到连接对应的连接信息
         }
     }
 
@@ -595,6 +597,7 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
             }
             connections_[conn_id] = connection_info;
             // No need to encrypt connection records in chunks
+            //连接信息写入chunk
             writeConnectionRecord(connection_info, false);
             appendConnectionRecordToBuffer(outgoing_chunk_buffer_, connection_info);
         }
@@ -613,9 +616,11 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
         connection_index.insert(connection_index.end(), index_entry);
 
         // Increment the connection count
+        //增加这个在这个chunk中连接数量
         curr_chunk_info_.connection_counts[connection_info->id]++;
 
         // Write the message data
+        //写入消息
         writeMessageDataRecord(conn_id, time, msg);
 
         // Check if we want to stop this chunk
@@ -662,7 +667,7 @@ void Bag::writeMessageDataRecord(uint32_t conn_id, ros::Time const& time, T cons
 
     writeHeader(header);//写入头
     writeDataLength(msg_ser_len);//写入数据长度
-    write((char*) record_buffer_.getData(), msg_ser_len);//
+    write((char*) record_buffer_.getData(), msg_ser_len);//写入数据
     
     // todo: use better abstraction than appendHeaderToBuffer
     appendHeaderToBuffer(outgoing_chunk_buffer_, header);
@@ -670,9 +675,10 @@ void Bag::writeMessageDataRecord(uint32_t conn_id, ros::Time const& time, T cons
 
     uint32_t offset = outgoing_chunk_buffer_.getSize();
     outgoing_chunk_buffer_.setSize(outgoing_chunk_buffer_.getSize() + msg_ser_len);
-    memcpy(outgoing_chunk_buffer_.getData() + offset, record_buffer_.getData(), msg_ser_len);
+    memcpy(outgoing_chunk_buffer_.getData() + offset, record_buffer_.getData(), msg_ser_len);//为啥都存入outgoing_chunk_buffer_
     
     // Update the current chunk time range
+    //更新这个chunk的时间戳
     if (time > curr_chunk_info_.end_time)
     	curr_chunk_info_.end_time = time;
     else if (time < curr_chunk_info_.start_time)

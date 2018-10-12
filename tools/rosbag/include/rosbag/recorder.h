@@ -177,7 +177,7 @@ private:
     std::queue<OutgoingMessage>*  queue_;                //!< queue for storing，存储队列
 
 
-    uint64_t                      queue_size_;           //!< queue size
+    uint64_t                      queue_size_;           //!< queue size，队列的大小
     uint64_t                      max_queue_size_;       //!< max queue size
 
     uint64_t                      split_count_;          //!< split count

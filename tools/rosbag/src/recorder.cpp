@@ -386,9 +386,9 @@ void Recorder::snapshotTrigger(std_msgs::Empty::ConstPtr trigger) {
 
 void Recorder::startWriting() {
     bag_.setCompression(options_.compression);//压缩模式
-    bag_.setChunkThreshold(options_.chunk_size);//
+    bag_.setChunkThreshold(options_.chunk_size);//chunksize上限
 
-    updateFilenames();
+    updateFilenames();//构造文件名称
     try {
         bag_.open(write_filename_, bagmode::Write);//创建bag文件
     }
@@ -402,16 +402,16 @@ void Recorder::startWriting() {
 
 void Recorder::stopWriting() {
     ROS_INFO("Closing %s.", target_filename_.c_str());
-    bag_.close();
+    bag_.close();//关闭当前写的bag文件
     rename(write_filename_.c_str(), target_filename_.c_str());
 }
 
 void Recorder::checkNumSplits()
 {
-    if(options_.max_splits>0)
+    if(options_.max_splits>0)//检查是否指定拆分数量
     {
         current_files_.push_back(target_filename_);
-        if(current_files_.size()>options_.max_splits)
+        if(current_files_.size()>options_.max_splits)//如果超出了最大的文件数量，从头部开始删除
         {
             int err = unlink(current_files_.front().c_str());
             if(err != 0)
@@ -425,17 +425,17 @@ void Recorder::checkNumSplits()
 
 bool Recorder::checkSize()
 {
-    if (options_.max_size > 0)
+    if (options_.max_size > 0)//是否设置大小限制
     {
         if (bag_.getSize() > options_.max_size)
         {
-            if (options_.split)
+            if (options_.split)//是否制定文件拆分
             {
                 stopWriting();
                 split_count_++;
                 checkNumSplits();
                 startWriting();
-            } else {
+            } else {//未指定文件拆分
                 ros::shutdown();
                 return true;
             }
@@ -446,7 +446,7 @@ bool Recorder::checkSize()
 
 bool Recorder::checkDuration(const ros::Time& t)
 {
-    if (options_.max_duration > ros::Duration(0))//指定最大记录时间
+    if (options_.max_duration > ros::Duration(0))//有指定最大记录时间
     {
         if (t - start_time_ > options_.max_duration)//时间超过最大记录时间
         {
@@ -457,10 +457,10 @@ bool Recorder::checkDuration(const ros::Time& t)
                     stopWriting();
                     split_count_++;
                     checkNumSplits();
-                    start_time_ += options_.max_duration;
+                    start_time_ += options_.max_duration;//重新更新起始时间
                     startWriting();
                 }
-            } else {
+            } else {//未制定文件拆分
                 ros::shutdown();
                 return true;
             }
@@ -477,6 +477,7 @@ void Recorder::doRecord() {
     startWriting();//创建bag文件
 
     // Schedule the disk space check
+    //记录下次warn的时间
     warn_next_ = ros::WallTime();
 
     try
@@ -513,12 +514,12 @@ void Recorder::doRecord() {
 #else
             boost::xtime_get(&xt, boost::TIME_UTC);
 #endif
-            xt.nsec += 250000000;
+            xt.nsec += 250000000;//250ms
             //在条件变量等待，超时
             queue_condition_.timed_wait(lock, xt);
             if (checkDuration(ros::Time::now()))//检查有没有超过规定的时间
             {
-                finished = true;
+                finished = true;//超过规定的时间就完成
                 break;
             }
         }
@@ -542,7 +543,7 @@ void Recorder::doRecord() {
         {
             //真正的写入文件
             if (scheduledCheckDisk() && checkLogging())
-                bag_.write(out.topic, out.time, *out.msg, out.connection_header);
+                bag_.write(out.topic, out.time, *out.msg, out.connection_header);//topic名称，消息时间，消息内容，connection_header map
         }
         catch (rosbag::BagException &ex)
         {

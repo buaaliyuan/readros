@@ -49,12 +49,12 @@ struct ROSBAG_STORAGE_DECL ConnectionInfo
     ConnectionInfo() : id(-1) { }
 
     uint32_t    id;
-    std::string topic;
-    std::string datatype;
-    std::string md5sum;
-    std::string msg_def;
+    std::string topic;//topic名称
+    std::string datatype;//数据类型
+    std::string md5sum;//md5值
+    std::string msg_def;//消息定义
 
-    boost::shared_ptr<ros::M_string> header;
+    boost::shared_ptr<ros::M_string> header;//header map
 };
 
 struct ChunkInfo
@@ -77,9 +77,9 @@ struct ROSBAG_STORAGE_DECL IndexEntry
 {
     ros::Time time;            //! timestamp of the message，消息的时间戳
     uint64_t  chunk_pos;       //! absolute byte offset of the chunk record containing the message，这条消息所在chunk在文件中的偏移量
-    uint32_t  offset;          //! relative byte offset of the message record (either definition or data) in the chunk
+    uint32_t  offset;          //! relative byte offset of the message record (either definition or data) in the chunk，在chunk中这个消息的偏移量
 
-    bool operator<(IndexEntry const& b) const { return time < b.time; }
+    bool operator<(IndexEntry const& b) const { return time < b.time; }//提供一个<符号重载
 };
 
 struct ROSBAG_STORAGE_DECL IndexEntryCompare

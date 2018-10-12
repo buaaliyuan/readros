@@ -108,7 +108,7 @@ void Bag::init() {
 
 void Bag::open(string const& filename, uint32_t mode) {
     mode_ = (BagMode) mode;
-
+    //根据不同的模式操作文件
     if (mode_ & bagmode::Append)
         openAppend(filename);
     else if (mode_ & bagmode::Write)
@@ -120,7 +120,7 @@ void Bag::open(string const& filename, uint32_t mode) {
 
     // Determine file size
     //确定文件大小
-    uint64_t offset = file_.getOffset();
+    uint64_t offset = file_.getOffset();//保存上一次的offset
     seek(0, std::ios::end);
     file_size_ = file_.getOffset();
     seek(offset);
@@ -142,7 +142,8 @@ void Bag::openRead(string const& filename) {
 void Bag::openWrite(string const& filename) {
     //对于记录来说是创建文件
     file_.openWrite(filename);
-
+    
+    //写入一些必要的信息
     startWriting();
 }
 
@@ -240,7 +241,7 @@ void Bag::writeVersion() {
 
     version_ = 200;
 
-    write(version);
+    write(version);//写入版本号
 }
 
 void Bag::readVersion() {
@@ -268,8 +269,8 @@ uint32_t Bag::getMinorVersion() const { return version_ % 100; }
 //
 
 void Bag::startWriting() {
-    writeVersion();
-    file_header_pos_ = file_.getOffset();//记录文件头在文件中的位置
+    writeVersion();//写入版本号
+    file_header_pos_ = file_.getOffset();//记录文件头在文件中的位置，这个位置是修改后的？？
     writeFileHeaderRecord();//写入bag头信息
 }
 
@@ -282,7 +283,8 @@ void Bag::stopWriting() {
     index_data_pos_ = file_.getOffset();
     writeConnectionRecords();
     writeChunkInfoRecords();
-
+    
+    //需要根据之前统计的信息重新改写bagheader中的一些信息统计
     seek(file_header_pos_);
     writeFileHeaderRecord();
 }
@@ -359,18 +361,19 @@ void Bag::startReadingVersion102() {
 // File header record
 //文件头记录
 void Bag::writeFileHeaderRecord() {
-    connection_count_ = connections_.size();
-    chunk_count_      = chunks_.size();
+    connection_count_ = connections_.size();//连接数量
+    chunk_count_      = chunks_.size();//chunk计数
 
     CONSOLE_BRIDGE_logDebug("Writing FILE_HEADER [%llu]: index_pos=%llu connection_count=%d chunk_count=%d",
               (unsigned long long) file_.getOffset(), (unsigned long long) index_data_pos_, connection_count_, chunk_count_);
     
     // Write file header record
-    M_string header;
+    //开始写入bag header
+    M_string header;//string map
     header[OP_FIELD_NAME]               = toHeaderString(&OP_FILE_HEADER);
     header[INDEX_POS_FIELD_NAME]        = toHeaderString(&index_data_pos_);
-    header[CONNECTION_COUNT_FIELD_NAME] = toHeaderString(&connection_count_);
-    header[CHUNK_COUNT_FIELD_NAME]      = toHeaderString(&chunk_count_);
+    header[CONNECTION_COUNT_FIELD_NAME] = toHeaderString(&connection_count_);//连接数量
+    header[CHUNK_COUNT_FIELD_NAME]      = toHeaderString(&chunk_count_);//chunk的数量
     encryptor_->addFieldsToFileHeader(header);
 
     boost::shared_array<uint8_t> header_buffer;//boost shared array的用武之地
@@ -382,9 +385,10 @@ void Bag::writeFileHeaderRecord() {
         data_len = FILE_HEADER_LENGTH - header_len;//剩余的长度给data
     write((char*) &header_len, 4);//写入这个header的长度
     write((char*) header_buffer.get(), header_len);//写入数据
-    write((char*) &data_len, 4);
+    write((char*) &data_len, 4);//写入数据长度
     
     // Pad the file header record out
+    //填充空白
     if (data_len > 0) {
         string padding;
         padding.resize(data_len, ' ');
@@ -439,8 +443,8 @@ void Bag::startWritingChunk(Time time) {
     // Initialize chunk info
     //初始化块消息
     curr_chunk_info_.pos        = file_.getOffset();//获取文件的偏移量
-    curr_chunk_info_.start_time = time;
-    curr_chunk_info_.end_time   = time;
+    curr_chunk_info_.start_time = time;//chunk的起始时间
+    curr_chunk_info_.end_time   = time;//chunk的停止时间
 
     // Write the chunk header, with a place-holder for the data sizes (we'll fill in when the chunk is finished)
     //写入chunk头,有占位符，等待chunk完成时写入
@@ -454,11 +458,12 @@ void Bag::startWritingChunk(Time time) {
     //记录这个chunk的文件偏移位置
     curr_chunk_data_pos_ = file_.getOffset();
 
-    chunk_open_ = true;
+    chunk_open_ = true;//chunk头创建完成
 }
 
 void Bag::stopWritingChunk() {
     // Add this chunk to the index
+    //存储所有的chunks
     chunks_.push_back(curr_chunk_info_);
     
     // Get the uncompressed and compressed sizes
@@ -471,7 +476,7 @@ void Bag::stopWritingChunk() {
     compressed_size = encryptor_->encryptChunk(compressed_size, curr_chunk_data_pos_, file_);
 
     // Rewrite the chunk header with the size of the chunk (remembering current offset)
-    uint64_t end_of_chunk_pos = file_.getOffset();
+    uint64_t end_of_chunk_pos = file_.getOffset();//获取chunksize，重新更新size
 
     seek(curr_chunk_info_.pos);
     writeChunkHeader(compression_, compressed_size, uncompressed_size);
@@ -485,19 +490,21 @@ void Bag::stopWritingChunk() {
     curr_chunk_info_.connection_counts.clear();
     
     // Flag that we're starting a new chunk
+    //下次写入开始一个chunk
     chunk_open_ = false;
 }
 
 void Bag::writeChunkHeader(CompressionType compression, uint32_t compressed_size, uint32_t uncompressed_size) {
     ChunkHeader chunk_header;
+    //设置chunk的 信息
     switch (compression) {
     case compression::Uncompressed: chunk_header.compression = COMPRESSION_NONE; break;
     case compression::BZ2:          chunk_header.compression = COMPRESSION_BZ2;  break;
     case compression::LZ4:          chunk_header.compression = COMPRESSION_LZ4;
     //case compression::ZLIB:         chunk_header.compression = COMPRESSION_ZLIB; break;
     }
-    chunk_header.compressed_size   = compressed_size;
-    chunk_header.uncompressed_size = uncompressed_size;
+    chunk_header.compressed_size   = compressed_size;//压缩后的大小
+    chunk_header.uncompressed_size = uncompressed_size;//未压缩的大小
 
     CONSOLE_BRIDGE_logDebug("Writing CHUNK [%llu]: compression=%s compressed=%d uncompressed=%d",
               (unsigned long long) file_.getOffset(), chunk_header.compression.c_str(), chunk_header.compressed_size, chunk_header.uncompressed_size);
@@ -922,6 +929,7 @@ uint32_t Bag::readMessageDataSize(IndexEntry const& index_entry) const {
 void Bag::writeChunkInfoRecords() {
     foreach(ChunkInfo const& chunk_info, chunks_) {
         // Write the chunk info header
+        //构造每个chunkinfo的header
         M_string header;
         uint32_t chunk_connection_count = chunk_info.connection_counts.size();
         header[OP_FIELD_NAME]         = toHeaderString(&OP_CHUNK_INFO);

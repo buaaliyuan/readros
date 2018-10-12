@@ -117,14 +117,14 @@ void ChunkedFile::open(string const& filename, string const& mode) {
             file_ = fopen(filename.c_str(), mode.c_str());//其他模式为何直接fopen??
         #endif
     //文件打开失败抛出异常
-    if (!file_)
+    if (!file_)//直接判断是否打开成功
         throw BagIOException((format("Error opening file: %1%") % filename.c_str()).str());
 
     //创建读写流
     read_stream_  = boost::make_shared<UncompressedStream>(this);
     write_stream_ = boost::make_shared<UncompressedStream>(this);
-    filename_     = filename;
-    offset_       = ftello(file_);//获取偏移量
+    filename_     = filename;//存储文件名
+    offset_       = ftello(file_);//存储当前文件指针
 }
 
 bool ChunkedFile::good() const {
