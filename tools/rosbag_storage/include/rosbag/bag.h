@@ -315,11 +315,11 @@ private:
     void seek(uint64_t pos, int origin = std::ios_base::beg) const;
 
 private:
-    BagMode             mode_;
-    mutable ChunkedFile file_;
+    BagMode             mode_;//读写模式
+    mutable ChunkedFile file_;//实际的文件
     int                 version_;
-    CompressionType     compression_;
-    uint32_t            chunk_threshold_;
+    CompressionType     compression_;//压缩类型
+    uint32_t            chunk_threshold_;//每个chunk的最大size
     uint32_t            bag_revision_;//??
 
     uint64_t file_size_;//文件大小

@@ -56,7 +56,7 @@ void UncompressedStream::write(void* ptr, size_t size) {
     if (result != size)//校验写入数量
         throw BagIOException((format("Error writing to file: writing %1% bytes, wrote %2% bytes") % size % result).str());
 
-    advanceOffset(size);
+    advanceOffset(size);//修改文件偏移量
 }
 
 void UncompressedStream::read(void* ptr, size_t size) {

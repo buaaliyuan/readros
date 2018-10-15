@@ -434,7 +434,7 @@ void Bag::readFileHeaderRecord() {
 
 uint32_t Bag::getChunkOffset() const {
     if (compression_ == compression::Uncompressed)
-        return file_.getOffset() - curr_chunk_data_pos_;
+        return file_.getOffset() - curr_chunk_data_pos_;//当前文件偏移量减去当前chunk的起始位置
     else
         return file_.getCompressedBytesIn();
 }
@@ -463,10 +463,11 @@ void Bag::startWritingChunk(Time time) {
 
 void Bag::stopWritingChunk() {
     // Add this chunk to the index
-    //存储所有的chunks
+    //存储所有的chunks信息
     chunks_.push_back(curr_chunk_info_);
     
     // Get the uncompressed and compressed sizes
+    //计算最后一个chunk的压缩和未压缩的size
     uint32_t uncompressed_size = getChunkOffset();
     file_.setWriteMode(compression::Uncompressed);
     uint32_t compressed_size = file_.getOffset() - curr_chunk_data_pos_;
@@ -476,14 +477,14 @@ void Bag::stopWritingChunk() {
     compressed_size = encryptor_->encryptChunk(compressed_size, curr_chunk_data_pos_, file_);
 
     // Rewrite the chunk header with the size of the chunk (remembering current offset)
-    uint64_t end_of_chunk_pos = file_.getOffset();//获取chunksize，重新更新size
+    uint64_t end_of_chunk_pos = file_.getOffset();//当前chunk的结束位置
 
-    seek(curr_chunk_info_.pos);
-    writeChunkHeader(compression_, compressed_size, uncompressed_size);
+    seek(curr_chunk_info_.pos);//返回当前chunkinfo的开始位置，记录关于本chunk刚刚统计的信息
+    writeChunkHeader(compression_, compressed_size, uncompressed_size);//写入chunkheader
 
     // Write out the indexes and clear them
-    seek(end_of_chunk_pos);
-    writeIndexRecords();
+    seek(end_of_chunk_pos);//回到chunk的最后位置
+    writeIndexRecords();//写入index record
     curr_chunk_connection_indexes_.clear();
 
     // Clear the connection counts
