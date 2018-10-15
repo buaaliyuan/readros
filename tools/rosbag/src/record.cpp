@@ -291,6 +291,7 @@ int main(int argc, char** argv) {
     }
 
     // Run the recorder
+	//运行记录功能
     rosbag::Recorder recorder(opts);
     int result = recorder.run();
     

@@ -48,7 +48,7 @@ struct ROSBAG_STORAGE_DECL ConnectionInfo
 {
     ConnectionInfo() : id(-1) { }
 
-    uint32_t    id;
+    uint32_t    id;//每个建立起来的connsection都存在一个id
     std::string topic;//topic名称
     std::string datatype;//数据类型
     std::string md5sum;//md5值

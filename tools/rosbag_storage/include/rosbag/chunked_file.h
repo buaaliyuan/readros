@@ -95,7 +95,7 @@ private:
 private:
     std::string filename_;       //!< path to file，文件路径
     FILE*       file_;           //!< file pointer，文件指针，使用的时带缓冲的标准文件
-    uint64_t    offset_;         //!< current position in the file，当前文件的指针，会在stream中被改变
+    uint64_t    offset_;         //!< current position in the file，当前文件的指针，会在stream中被改变，为何记录这个位置？？
     uint64_t    compressed_in_;  //!< number of bytes written to current compressed stream，已经写到当前压缩流中的字节数量
     char*       unused_;         //!< extra data read by compressed stream，被压缩流读取的额外数据
     int         nUnused_;        //!< number of bytes of extra data read by compressed stream，被压缩流读取的字节数量

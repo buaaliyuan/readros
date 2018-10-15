@@ -73,7 +73,7 @@ public:
 
     std::string                         topic;//话题名称
     topic_tools::ShapeShifter::ConstPtr msg;//消息内容
-    boost::shared_ptr<ros::M_string>    connection_header;//??
+    boost::shared_ptr<ros::M_string>    connection_header;//??关于这个连接的一个描述
     ros::Time                           time;//时间
 };
 
@@ -186,7 +186,7 @@ private:
 
     ros::Time                     last_buffer_warn_;
 
-    ros::Time                     start_time_;
+    ros::Time                     start_time_;//开始记录的事件
 
     bool                          writing_enabled_;
     //主要用于降低检测频率

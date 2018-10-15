@@ -315,6 +315,7 @@ private:
     void seek(uint64_t pos, int origin = std::ios_base::beg) const;
 
 private:
+	//bag中记录了很多关键的与文件格式相关的数据
     BagMode             mode_;
     mutable ChunkedFile file_;
     int                 version_;
@@ -331,7 +332,7 @@ private:
     // Current chunk
     //当前记录的chunk信息
     bool      chunk_open_;
-    ChunkInfo curr_chunk_info_;
+    ChunkInfo curr_chunk_info_;//每个chunk的基本信息
     uint64_t  curr_chunk_data_pos_;
 
     std::map<std::string, uint32_t>                topic_connection_ids_;//topic->id
@@ -518,6 +519,7 @@ boost::shared_ptr<T> Bag::instantiateBuffer(IndexEntry const& index_entry) const
     }
 }
 
+//写入文件
 template<class T>
 void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg, boost::shared_ptr<ros::M_string> const& connection_header) {
 
@@ -535,18 +537,20 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
     uint32_t conn_id = 0;
     if (!connection_header) {//如果没有connection header
         // No connection header: we'll manufacture one, and store by topic
+		//
 
         std::map<std::string, uint32_t>::iterator topic_connection_ids_iter = topic_connection_ids_.find(topic);
         if (topic_connection_ids_iter == topic_connection_ids_.end()) {//如果当前topic并没有存在于topic_connection_ids_中
-            conn_id = connections_.size();
+            conn_id = connections_.size();//为这个topic分配一个id
             topic_connection_ids_[topic] = conn_id;//每个topic都分配一个id，存储到map中
         }
         else {
+			//如果找到了就从connections_数组中取出关于这个连接的详细信息
             conn_id = topic_connection_ids_iter->second;
             connection_info = connections_[conn_id];//查找对应连接的信息
         }
     }
-    else {
+    else {//如果提供了关于这个连接的connection_header
         // Store the connection info by the address of the connection header
 
         // Add the topic name to the connection header, so that when we later search by 
@@ -555,7 +559,7 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
         // for our bookkeeping, and will not appear in the resulting .bag.
         ros::M_string connection_header_copy(*connection_header);
         connection_header_copy["topic"] = topic;
-
+		//查找这个connection_header对应的id
         std::map<ros::M_string, uint32_t>::iterator header_connection_ids_iter = header_connection_ids_.find(connection_header_copy);
         if (header_connection_ids_iter == header_connection_ids_.end()) {//如果没有则添加
             conn_id = connections_.size();//conn_id为connections_的大小
@@ -570,15 +574,15 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
     {
         // Seek to the end of the file (needed in case previous operation was a read)
         seek(0, std::ios::end);
-        file_size_ = file_.getOffset();
+        file_size_ = file_.getOffset();//读取文件大小
 
         // Write the chunk header if we're starting a new chunk
-        //写入一个chunk头
+        //首次创建chunk
         if (!chunk_open_)
             startWritingChunk(time);
 
         // Write connection info record, if necessary
-        //写入连接信息到记录
+        //如果没有匹配到构造一个新的connection_info
         if (connection_info == NULL) {
             connection_info = new ConnectionInfo();
             connection_info->id       = conn_id;
@@ -595,7 +599,7 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
                 (*connection_info->header)["md5sum"]             = connection_info->md5sum;
                 (*connection_info->header)["message_definition"] = connection_info->msg_def;
             }
-            connections_[conn_id] = connection_info;
+            connections_[conn_id] = connection_info;//添加查找索引
             // No need to encrypt connection records in chunks
             //连接信息写入chunk
             writeConnectionRecord(connection_info, false);

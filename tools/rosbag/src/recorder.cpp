@@ -177,6 +177,7 @@ int Recorder::run() {
     ros::Subscriber trigger_sub;
 
     // Spin up a thread for writing to the file
+	//开启一个写入文件线程
     boost::thread record_thread;
     if (options_.snapshot)
     {
@@ -647,6 +648,7 @@ void Recorder::doCheckMaster(ros::TimerEvent const& e, ros::NodeHandle& node_han
 
 void Recorder::doTrigger() {
     ros::NodeHandle nh;
+	//为何注册这个topic？？
     ros::Publisher pub = nh.advertise<std_msgs::Empty>("snapshot_trigger", 1, true);
     pub.publish(std_msgs::Empty());
 

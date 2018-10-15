@@ -122,8 +122,8 @@ void Bag::open(string const& filename, uint32_t mode) {
     //确定文件大小
     uint64_t offset = file_.getOffset();//保存上一次的offset
     seek(0, std::ios::end);
-    file_size_ = file_.getOffset();
-    seek(offset);
+    file_size_ = file_.getOffset();//记录当前文件的大小
+    seek(offset);//恢复文件指针
 }
 
 void Bag::openRead(string const& filename) {
@@ -174,7 +174,7 @@ void Bag::close() {
         return;
 
     if (mode_ & bagmode::Write || mode_ & bagmode::Append)
-    	closeWrite();
+    	closeWrite();//关键步骤
     
     file_.close();
 
@@ -270,13 +270,13 @@ uint32_t Bag::getMinorVersion() const { return version_ % 100; }
 
 void Bag::startWriting() {
     writeVersion();//写入版本号
-    file_header_pos_ = file_.getOffset();//记录文件头在文件中的位置，这个位置是修改后的？？
+    file_header_pos_ = file_.getOffset();//记录文件头在文件中的位置，下一步即将记录bagheader的位置
     writeFileHeaderRecord();//写入bag头信息
 }
 
 void Bag::stopWriting() {
     if (chunk_open_)
-        stopWritingChunk();
+        stopWritingChunk();//停止当前chunk写入
 
     seek(0, std::ios::end);
 
@@ -361,6 +361,7 @@ void Bag::startReadingVersion102() {
 // File header record
 //文件头记录
 void Bag::writeFileHeaderRecord() {
+	//第一次调用的时候都为空，后期写完后最后会再次更新，所有header的文件中的位置是很关键的额
     connection_count_ = connections_.size();//连接数量
     chunk_count_      = chunks_.size();//chunk计数
 
@@ -370,18 +371,18 @@ void Bag::writeFileHeaderRecord() {
     // Write file header record
     //开始写入bag header
     M_string header;//string map
-    header[OP_FIELD_NAME]               = toHeaderString(&OP_FILE_HEADER);
-    header[INDEX_POS_FIELD_NAME]        = toHeaderString(&index_data_pos_);
+    header[OP_FIELD_NAME]               = toHeaderString(&OP_FILE_HEADER);//标示这个record的属性
+    header[INDEX_POS_FIELD_NAME]        = toHeaderString(&index_data_pos_);//index这个record在文件中的位置
     header[CONNECTION_COUNT_FIELD_NAME] = toHeaderString(&connection_count_);//连接数量
     header[CHUNK_COUNT_FIELD_NAME]      = toHeaderString(&chunk_count_);//chunk的数量
     encryptor_->addFieldsToFileHeader(header);
 
     boost::shared_array<uint8_t> header_buffer;//boost shared array的用武之地
     uint32_t header_len;
-    //将一个map转换为buffer，在header.h
+    //将一个map转换为header_buffer，在header.h
     ros::Header::write(header, header_buffer, header_len);
     uint32_t data_len = 0;
-    if (header_len < FILE_HEADER_LENGTH)
+    if (header_len < FILE_HEADER_LENGTH)//fileheader长度为4k
         data_len = FILE_HEADER_LENGTH - header_len;//剩余的长度给data
     write((char*) &header_len, 4);//写入这个header的长度
     write((char*) header_buffer.get(), header_len);//写入数据
@@ -442,12 +443,12 @@ uint32_t Bag::getChunkOffset() const {
 void Bag::startWritingChunk(Time time) {
     // Initialize chunk info
     //初始化块消息
-    curr_chunk_info_.pos        = file_.getOffset();//获取文件的偏移量
+    curr_chunk_info_.pos        = file_.getOffset();//获取当前文件的偏移量，记录为该chunk的在文件中的位置
     curr_chunk_info_.start_time = time;//chunk的起始时间
     curr_chunk_info_.end_time   = time;//chunk的停止时间
 
     // Write the chunk header, with a place-holder for the data sizes (we'll fill in when the chunk is finished)
-    //写入chunk头,有占位符，等待chunk完成时写入
+    //写入chunk头,有占位符，等待chunk完成时写入，注意此时的chunkinfo并没有写入文件
     writeChunkHeader(compression_, 0, 0);
 
     // Turn on compressed writing
@@ -508,7 +509,7 @@ void Bag::writeChunkHeader(CompressionType compression, uint32_t compressed_size
 
     CONSOLE_BRIDGE_logDebug("Writing CHUNK [%llu]: compression=%s compressed=%d uncompressed=%d",
               (unsigned long long) file_.getOffset(), chunk_header.compression.c_str(), chunk_header.compressed_size, chunk_header.uncompressed_size);
-
+	//构造chunk_header的消息，此时的uncompression_size未知
     M_string header;
     header[OP_FIELD_NAME]          = toHeaderString(&OP_CHUNK);
     header[COMPRESSION_FIELD_NAME] = chunk_header.compression;
