@@ -281,11 +281,11 @@ void Bag::stopWriting() {
     seek(0, std::ios::end);
 
     index_data_pos_ = file_.getOffset();
-    writeConnectionRecords();
+    writeConnectionRecords();//写入关于connection的record
     writeChunkInfoRecords();
     
     //需要根据之前统计的信息重新改写bagheader中的一些信息统计
-    seek(file_header_pos_);
+    seek(file_header_pos_);//需要更新header中的信息
     writeFileHeaderRecord();
 }
 
@@ -435,14 +435,14 @@ void Bag::readFileHeaderRecord() {
 
 uint32_t Bag::getChunkOffset() const {
     if (compression_ == compression::Uncompressed)
-        return file_.getOffset() - curr_chunk_data_pos_;
+        return file_.getOffset() - curr_chunk_data_pos_;//当前文件偏移量减去当前chunk的起始位置
     else
         return file_.getCompressedBytesIn();
 }
 
 void Bag::startWritingChunk(Time time) {
     // Initialize chunk info
-    //初始化块消息
+    //初始化块消息，这里的信息会被stopwirtingchunk更新
     curr_chunk_info_.pos        = file_.getOffset();//获取当前文件的偏移量，记录为该chunk的在文件中的位置
     curr_chunk_info_.start_time = time;//chunk的起始时间
     curr_chunk_info_.end_time   = time;//chunk的停止时间
@@ -456,7 +456,7 @@ void Bag::startWritingChunk(Time time) {
     file_.setWriteMode(compression_);
     
     // Record where the data section of this chunk started
-    //记录这个chunk的文件偏移位置
+    //记录这个chunk的文件数据偏移位置
     curr_chunk_data_pos_ = file_.getOffset();
 
     chunk_open_ = true;//chunk头创建完成
@@ -464,10 +464,11 @@ void Bag::startWritingChunk(Time time) {
 
 void Bag::stopWritingChunk() {
     // Add this chunk to the index
-    //存储所有的chunks
+    //存储所有的chunks信息
     chunks_.push_back(curr_chunk_info_);
     
     // Get the uncompressed and compressed sizes
+    //计算最后一个chunk的压缩和未压缩的size
     uint32_t uncompressed_size = getChunkOffset();
     file_.setWriteMode(compression::Uncompressed);
     uint32_t compressed_size = file_.getOffset() - curr_chunk_data_pos_;
@@ -477,14 +478,14 @@ void Bag::stopWritingChunk() {
     compressed_size = encryptor_->encryptChunk(compressed_size, curr_chunk_data_pos_, file_);
 
     // Rewrite the chunk header with the size of the chunk (remembering current offset)
-    uint64_t end_of_chunk_pos = file_.getOffset();//获取chunksize，重新更新size
+    uint64_t end_of_chunk_pos = file_.getOffset();//当前chunk的结束位置
 
-    seek(curr_chunk_info_.pos);
-    writeChunkHeader(compression_, compressed_size, uncompressed_size);
+    seek(curr_chunk_info_.pos);//返回当前chunkinfo的开始位置，记录关于本chunk刚刚统计的信息
+    writeChunkHeader(compression_, compressed_size, uncompressed_size);//写入chunkheader
 
     // Write out the indexes and clear them
-    seek(end_of_chunk_pos);
-    writeIndexRecords();
+    seek(end_of_chunk_pos);//回到chunk的最后位置
+    writeIndexRecords();//写入index record
     curr_chunk_connection_indexes_.clear();
 
     // Clear the connection counts
@@ -543,6 +544,7 @@ void Bag::writeIndexRecords() {
         multiset<IndexEntry> const& index         = i->second;
 
         // Write the index record header
+		//写入索引recorder的head，按照连接的id来写入多个index record
         uint32_t index_size = index.size();
         M_string header;
         header[OP_FIELD_NAME]         = toHeaderString(&OP_INDEX_DATA);
@@ -551,15 +553,16 @@ void Bag::writeIndexRecords() {
         header[COUNT_FIELD_NAME]      = toHeaderString(&index_size);
         writeHeader(header);
 
-        writeDataLength(index_size * 12);
+        writeDataLength(index_size * 12);//秒、纳秒、
 
         CONSOLE_BRIDGE_logDebug("Writing INDEX_DATA: connection=%d ver=%d count=%d", connection_id, INDEX_VERSION, index_size);
 
         // Write the index record data (pairs of timestamp and position in file)
+		//将每个数据都写入数据段
         foreach(IndexEntry const& e, index) {
             write((char*) &e.time.sec,  4);
             write((char*) &e.time.nsec, 4);
-            write((char*) &e.offset,    4);
+            write((char*) &e.offset,    4);//在chunk中的偏移吧
 
             CONSOLE_BRIDGE_logDebug("  - %d.%d: %d", e.time.sec, e.time.nsec, e.offset);
         }
@@ -681,6 +684,7 @@ void Bag::readConnectionIndexRecord200() {
 void Bag::writeConnectionRecords() {
     for (map<uint32_t, ConnectionInfo*>::const_iterator i = connections_.begin(); i != connections_.end(); i++) {
         ConnectionInfo const* connection_info = i->second;
+		//写入每一个connection_info信息record
         writeConnectionRecord(connection_info, true);
     }
 }
@@ -928,32 +932,33 @@ uint32_t Bag::readMessageDataSize(IndexEntry const& index_entry) const {
 }
 
 void Bag::writeChunkInfoRecords() {
+	//分别写入chunkinfo records
     foreach(ChunkInfo const& chunk_info, chunks_) {
         // Write the chunk info header
         //构造每个chunkinfo的header
         M_string header;
-        uint32_t chunk_connection_count = chunk_info.connection_counts.size();
+        uint32_t chunk_connection_count = chunk_info.connection_counts.size();//这个chunk中连接的数量
         header[OP_FIELD_NAME]         = toHeaderString(&OP_CHUNK_INFO);
         header[VER_FIELD_NAME]        = toHeaderString(&CHUNK_INFO_VERSION);
-        header[CHUNK_POS_FIELD_NAME]  = toHeaderString(&chunk_info.pos);
-        header[START_TIME_FIELD_NAME] = toHeaderString(&chunk_info.start_time);
-        header[END_TIME_FIELD_NAME]   = toHeaderString(&chunk_info.end_time);
-        header[COUNT_FIELD_NAME]      = toHeaderString(&chunk_connection_count);
+        header[CHUNK_POS_FIELD_NAME]  = toHeaderString(&chunk_info.pos);//chunk所在文件中的绝对位置
+        header[START_TIME_FIELD_NAME] = toHeaderString(&chunk_info.start_time);//chunk起始时间
+        header[END_TIME_FIELD_NAME]   = toHeaderString(&chunk_info.end_time);//chunk结束事件
+        header[COUNT_FIELD_NAME]      = toHeaderString(&chunk_connection_count);//chunk连接的数量
 
         CONSOLE_BRIDGE_logDebug("Writing CHUNK_INFO [%llu]: ver=%d pos=%llu start=%d.%d end=%d.%d",
                   (unsigned long long) file_.getOffset(), CHUNK_INFO_VERSION, (unsigned long long) chunk_info.pos,
                   chunk_info.start_time.sec, chunk_info.start_time.nsec,
                   chunk_info.end_time.sec, chunk_info.end_time.nsec);
 
-        writeHeader(header);
+        writeHeader(header);//写入头
 
-        writeDataLength(8 * chunk_connection_count);
+        writeDataLength(8 * chunk_connection_count);//写入数据长度
 
         // Write the topic names and counts
         for (map<uint32_t, uint32_t>::const_iterator i = chunk_info.connection_counts.begin(); i != chunk_info.connection_counts.end(); i++) {
             uint32_t connection_id = i->first;
             uint32_t count         = i->second;
-
+			//chunk中每个连接的数量记录
             write((char*) &connection_id, 4);
             write((char*) &count, 4);
 

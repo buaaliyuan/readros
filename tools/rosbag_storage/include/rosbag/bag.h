@@ -315,12 +315,11 @@ private:
     void seek(uint64_t pos, int origin = std::ios_base::beg) const;
 
 private:
-	//bag中记录了很多关键的与文件格式相关的数据
-    BagMode             mode_;
-    mutable ChunkedFile file_;
+    BagMode             mode_;//读写模式
+    mutable ChunkedFile file_;//实际的文件
     int                 version_;
-    CompressionType     compression_;
-    uint32_t            chunk_threshold_;
+    CompressionType     compression_;//压缩类型
+    uint32_t            chunk_threshold_;//每个chunk的最大size
     uint32_t            bag_revision_;//??
 
     uint64_t file_size_;//文件大小
@@ -534,7 +533,9 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
     // Get ID for connection header
     //与每个topic建立起来的连接都应该有一个对于该连接的描述
     ConnectionInfo* connection_info = NULL;
+	
     uint32_t conn_id = 0;
+	
     if (!connection_header) {//如果没有connection header
         // No connection header: we'll manufacture one, and store by topic
 		//
@@ -601,7 +602,7 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
             }
             connections_[conn_id] = connection_info;//添加查找索引
             // No need to encrypt connection records in chunks
-            //连接信息写入chunk
+            //连接信息写入chunkdata
             writeConnectionRecord(connection_info, false);
             appendConnectionRecordToBuffer(outgoing_chunk_buffer_, connection_info);
         }
@@ -609,9 +610,9 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
         // Add to topic indexes
         IndexEntry index_entry;
         index_entry.time      = time;
-        index_entry.chunk_pos = curr_chunk_info_.pos;
-        index_entry.offset    = getChunkOffset();
-
+        index_entry.chunk_pos = curr_chunk_info_.pos;//当前消息所在的chunk
+        index_entry.offset    = getChunkOffset();//当前消息所在chunk中的相对偏移
+		//按照连接的id将消息的索引进行收集
         std::multiset<IndexEntry>& chunk_connection_index = curr_chunk_connection_indexes_[connection_info->id];
         //将数据按照connection_info的id来存储，存储使用set，重载的<号可以自动排序
         chunk_connection_index.insert(chunk_connection_index.end(), index_entry);
