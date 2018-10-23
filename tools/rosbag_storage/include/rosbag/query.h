@@ -97,6 +97,7 @@ private:
 };
 
 //! Pairs of queries and the bags they come from (used internally by View)
+//就是一个结构体
 struct ROSBAG_STORAGE_DECL BagQuery
 {
     BagQuery(Bag const* _bag, Query const& _query, uint32_t _bag_revision);
@@ -113,8 +114,8 @@ struct ROSBAG_STORAGE_DECL MessageRange
                  ConnectionInfo const* _connection_info,
                  BagQuery const* _bag_query);
 
-    std::multiset<IndexEntry>::const_iterator begin;
-    std::multiset<IndexEntry>::const_iterator end;
+    std::multiset<IndexEntry>::const_iterator begin;//第一个消息
+    std::multiset<IndexEntry>::const_iterator end;//最后一个消息
     ConnectionInfo const* connection_info;
     BagQuery const* bag_query;           //!< pointer to vector of queries in View
 };

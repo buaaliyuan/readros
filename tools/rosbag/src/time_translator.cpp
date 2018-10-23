@@ -58,7 +58,7 @@ void TimeTranslator::shift(ros::Duration const& d) {
 }
 
 ros::Time TimeTranslator::translate(ros::Time const& t) {
-    return translated_start_ + (t - real_start_) * (1.0 / time_scale_);
+    return translated_start_ + (t - real_start_) * (1.0 / time_scale_);//转换时间位置和伸缩
 }
 
 } // namespace rosbag

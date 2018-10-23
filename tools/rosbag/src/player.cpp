@@ -128,13 +128,14 @@ void Player::publish() {
     options_.check();
 
     // Open all the bag files
+    //打开所有的bag文件
     foreach(string const& filename, options_.bags) {
         ROS_INFO("Opening %s", filename.c_str());
 
         try
         {
             shared_ptr<Bag> bag(boost::make_shared<Bag>());
-            bag->open(filename, bagmode::Read);
+            bag->open(filename, bagmode::Read);//以read方式打开
             bags_.push_back(bag);
         }
         catch (BagUnindexedException ex) {
@@ -143,7 +144,7 @@ void Player::publish() {
         }
     }
 
-    setupTerminal();
+    setupTerminal();//修改了一些终端的属性
 
     if (!node_handle_.ok())
       return;
@@ -157,16 +158,17 @@ void Player::publish() {
       puts("");
     
     // Publish all messages in the bags
+    //发布bag中的所有信息
     View full_view;
     foreach(shared_ptr<Bag> bag, bags_)
         full_view.addQuery(*bag);
 
-    ros::Time initial_time = full_view.getBeginTime();
+    ros::Time initial_time = full_view.getBeginTime();//获取做小的时间
 
-    initial_time += ros::Duration(options_.time);
+    initial_time += ros::Duration(options_.time);//用户指定了起始时间
 
-    ros::Time finish_time = ros::TIME_MAX;
-    if (options_.has_duration)
+    ros::Time finish_time = ros::TIME_MAX;//结束时间
+    if (options_.has_duration)//用户指定了持续时间段
     {
       finish_time = initial_time + ros::Duration(options_.duration);
     }
@@ -191,6 +193,7 @@ void Player::publish() {
     }
 
     // Advertise all of our messages
+    //注册所有的消息
     foreach(const ConnectionInfo* c, view.getConnections())
     {
         ros::M_string::const_iterator header_iter = c->header->find("callerid");
@@ -203,7 +206,7 @@ void Player::publish() {
 
             ros::AdvertiseOptions opts = createAdvertiseOptions(c, options_.queue_size, options_.prefix);
 
-            ros::Publisher pub = node_handle_.advertise(opts);
+            ros::Publisher pub = node_handle_.advertise(opts);//为每个连接都创建一个publisher
             publishers_.insert(publishers_.begin(), pair<string, ros::Publisher>(callerid_topic, pub));
 
             pub_iter = publishers_.find(callerid_topic);
@@ -245,14 +248,14 @@ void Player::publish() {
 
     while (true) {
         // Set up our time_translator and publishers
-
+        //时间尺度转换
         time_translator_.setTimeScale(options_.time_scale);
 
         start_time_ = view.begin()->getTime();
         time_translator_.setRealStartTime(start_time_);
-        bag_length_ = view.getEndTime() - view.getBeginTime();
+        bag_length_ = view.getEndTime() - view.getBeginTime();//bag的整体时间长度
 
-        // Set the last rate control to now, so the program doesn't start delayed.
+        // Set the last rate control to now, so the program doesn't start delayed.？？
         last_rate_control_ = start_time_;
 
         time_publisher_.setTime(start_time_);
@@ -274,7 +277,7 @@ void Player::publish() {
             if (!node_handle_.ok())
                 break;
 
-            doPublish(m);
+            doPublish(m);//发布消息
         }
 
         if (options_.keep_alive)
@@ -751,7 +754,7 @@ void TimePublisher::runClock(const ros::WallDuration& duration)
         rosgraph_msgs::Clock pub_msg;
 
         ros::WallTime t = ros::WallTime::now();
-        ros::WallTime done = t + duration;
+        ros::WallTime done = t + duration;//计算一个绝对时间点
 
         while (t < done && t < wc_horizon_)
         {

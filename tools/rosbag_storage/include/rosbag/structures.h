@@ -44,6 +44,8 @@
 
 namespace rosbag {
 
+
+//与bag建立起来的每个连接都有对应的属性
 struct ROSBAG_STORAGE_DECL ConnectionInfo
 {
     ConnectionInfo() : id(-1) { }
@@ -57,6 +59,7 @@ struct ROSBAG_STORAGE_DECL ConnectionInfo
     boost::shared_ptr<ros::M_string> header;//header map
 };
 
+//每个chunk的属性，包括内部存储消息的最小时间和最大时间，以及这个chunk在文件中的偏移
 struct ChunkInfo
 {
     ros::Time   start_time;    //! earliest timestamp of a message in the chunk，在chunk中的最早的时间
@@ -73,13 +76,14 @@ struct ROSBAG_STORAGE_DECL ChunkHeader
     uint32_t    uncompressed_size;    //! uncompressed size of the chunk in bytes，未压缩时chunk的大小
 };
 
+//描述了消息的属性，时间、所在chunk的位置、在chunk中的偏移
 struct ROSBAG_STORAGE_DECL IndexEntry
 {
     ros::Time time;            //! timestamp of the message，消息的时间戳
     uint64_t  chunk_pos;       //! absolute byte offset of the chunk record containing the message，这条消息所在chunk在文件中的偏移量
     uint32_t  offset;          //! relative byte offset of the message record (either definition or data) in the chunk，在chunk中这个消息的偏移量
 
-    bool operator<(IndexEntry const& b) const { return time < b.time; }//提供一个<符号重载
+    bool operator<(IndexEntry const& b) const { return time < b.time; }//提供一个<符号重载，这个对于set排序来说很关键
 };
 
 struct ROSBAG_STORAGE_DECL IndexEntryCompare

@@ -129,13 +129,13 @@ void Bag::open(string const& filename, uint32_t mode) {
 void Bag::openRead(string const& filename) {
     file_.openRead(filename);
 
-    readVersion();
+    readVersion();//读取版本号
 
     switch (version_) {
     case 102: startReadingVersion102(); break;
     case 200: startReadingVersion200(); break;
     default:
-        throw BagException((format("Unsupported bag file version: %1%.%2%") % getMajorVersion() % getMinorVersion()).str());
+        throw BagException((format("Unsupported bag file version: %1%.%2%") % getMajorVersion() % getMinorVersion()).str());//不能识别版本号抛出异常
     }
 }
 
@@ -245,20 +245,20 @@ void Bag::writeVersion() {
 }
 
 void Bag::readVersion() {
-    string version_line = file_.getline();
+    string version_line = file_.getline();//按行读取
 
-    file_header_pos_ = file_.getOffset();
+    file_header_pos_ = file_.getOffset();//记录文件的fileheader偏移
 
     char logtypename[100];
     int version_major, version_minor;
 #if defined(_MSC_VER)
     if (sscanf_s(version_line.c_str(), "#ROS%s V%d.%d", logtypename, sizeof(logtypename), &version_major, &version_minor) != 3)
 #else
-    if (sscanf(version_line.c_str(), "#ROS%99s V%d.%d", logtypename, &version_major, &version_minor) != 3)
+    if (sscanf(version_line.c_str(), "#ROS%99s V%d.%d", logtypename, &version_major, &version_minor) != 3)//格式化读取借鉴
 #endif
-        throw BagIOException("Error reading version line");
+        throw BagIOException("Error reading version line");//读取错误抛出异常
 
-    version_ = version_major * 100 + version_minor;
+    version_ = version_major * 100 + version_minor;//构成版本号
 
     CONSOLE_BRIDGE_logDebug("Read VERSION: version=%d", version_);
 }
@@ -291,31 +291,37 @@ void Bag::stopWriting() {
 
 void Bag::startReadingVersion200() {
     // Read the file header record, which points to the end of the chunks
+    //读取文件头
     readFileHeaderRecord();
 
     // Seek to the end of the chunks
+    //转移到chunks后面的index record
     seek(index_data_pos_);
 
     // Read the connection records (one for each connection)
-    for (uint32_t i = 0; i < connection_count_; i++)
+    //读取每个连接的信息
+    for (uint32_t i = 0; i < connection_count_; i++)//connection_count_从File header中获取,构造connections_
         readConnectionRecord();
 
     // Read the chunk info records
-    for (uint32_t i = 0; i < chunk_count_; i++)
+    //读取所有chunkinfo
+    for (uint32_t i = 0; i < chunk_count_; i++)//chunk_count_从file header中获取,构造chunks_
         readChunkInfoRecord();
 
     // Read the connection indexes for each chunk
     foreach(ChunkInfo const& chunk_info, chunks_) {
         curr_chunk_info_ = chunk_info;
 
-        seek(curr_chunk_info_.pos);
+        seek(curr_chunk_info_.pos);//
 
         // Skip over the chunk data
+        //跳过chunk数据，直接读取后面的index rec
         ChunkHeader chunk_header;
         readChunkHeader(chunk_header);
         seek(chunk_header.compressed_size, std::ios::cur);
 
         // Read the index records after the chunk
+        //chunkinfo中的size就是chunk后面跟的index的数量,构造connection_index_
         for (unsigned int i = 0; i < chunk_info.connection_counts.size(); i++)
             readConnectionIndexRecord200();
     }
@@ -403,12 +409,13 @@ void Bag::readFileHeaderRecord() {
     if (!readHeader(header) || !readDataLength(data_size))
         throw BagFormatException("Error reading FILE_HEADER record");
 
-    M_string& fields = *header.getValues();
+    M_string& fields = *header.getValues();//得到header中的map形式
 
-    if (!isOp(fields, OP_FILE_HEADER))
+    if (!isOp(fields, OP_FILE_HEADER))//校验是否是file header
         throw BagFormatException("Expected FILE_HEADER op not found");
 
     // Read index position
+    //读取index的位置
     readField(fields, INDEX_POS_FIELD_NAME, true, (uint64_t*) &index_data_pos_);
 
     if (index_data_pos_ == 0)
@@ -416,10 +423,10 @@ void Bag::readFileHeaderRecord() {
 
     // Read topic and chunks count
     if (version_ >= 200) {
-        readField(fields, CONNECTION_COUNT_FIELD_NAME, true, &connection_count_);
-        readField(fields, CHUNK_COUNT_FIELD_NAME,      true, &chunk_count_);
+        readField(fields, CONNECTION_COUNT_FIELD_NAME, true, &connection_count_);//读取总连接数目
+        readField(fields, CHUNK_COUNT_FIELD_NAME,      true, &chunk_count_);//读取chunk数目
         std::string encryptor_plugin_name;
-        readField(fields, ENCRYPTOR_FIELD_NAME, 0, UINT_MAX, false, encryptor_plugin_name);
+        readField(fields, ENCRYPTOR_FIELD_NAME, 0, UINT_MAX, false, encryptor_plugin_name);//读取加密方式
         if (!encryptor_plugin_name.empty()) {
             setEncryptorPlugin(encryptor_plugin_name);
             encryptor_->readFieldsFromFileHeader(fields);
@@ -430,6 +437,7 @@ void Bag::readFileHeaderRecord() {
               (unsigned long long) index_data_pos_, connection_count_, chunk_count_);
 
     // Skip the data section (just padding)
+    //跳过后面的padding填充
     seek(data_size, std::ios::cur);
 }
 
@@ -481,9 +489,10 @@ void Bag::stopWritingChunk() {
     uint64_t end_of_chunk_pos = file_.getOffset();//当前chunk的结束位置
 
     seek(curr_chunk_info_.pos);//返回当前chunkinfo的开始位置，记录关于本chunk刚刚统计的信息
-    writeChunkHeader(compression_, compressed_size, uncompressed_size);//写入chunkheader
+    writeChunkHeader(compression_, compressed_size, uncompressed_size);//更新chunkheader
 
     // Write out the indexes and clear them
+    //写出该chunk的索引
     seek(end_of_chunk_pos);//回到chunk的最后位置
     writeIndexRecords();//写入index record
     curr_chunk_connection_indexes_.clear();
@@ -674,7 +683,7 @@ void Bag::readConnectionIndexRecord200() {
           CONSOLE_BRIDGE_logError("Index entry for topic %s contains invalid time.  This message will not be loaded.", connections_[connection_id]->topic.c_str());
         } else
         {
-          connection_index.insert(connection_index.end(), index_entry);
+          connection_index.insert(connection_index.end(), index_entry);//构建connection_index
         }
     }
 }
@@ -695,18 +704,19 @@ void Bag::writeConnectionRecord(ConnectionInfo const* connection_info, const boo
 
     M_string header;
     header[OP_FIELD_NAME]         = toHeaderString(&OP_CONNECTION);
-    header[TOPIC_FIELD_NAME]      = connection_info->topic;
-    header[CONNECTION_FIELD_NAME] = toHeaderString(&connection_info->id);
+    header[TOPIC_FIELD_NAME]      = connection_info->topic;//topic
+    header[CONNECTION_FIELD_NAME] = toHeaderString(&connection_info->id);//连接id
 
+    
     if (encrypt)
         encryptor_->writeEncryptedHeader(boost::bind(&Bag::writeHeader, this, _1), header, file_);
     else
-        writeHeader(header);
+        writeHeader(header);//这个时conn record的头
 
     if (encrypt)
         encryptor_->writeEncryptedHeader(boost::bind(&Bag::writeHeader, this, _1), *connection_info->header, file_);
     else
-        writeHeader(*connection_info->header);
+        writeHeader(*connection_info->header);//这个时data
 }
 
 void Bag::appendConnectionRecordToBuffer(Buffer& buf, ConnectionInfo const* connection_info) {
@@ -725,19 +735,20 @@ void Bag::readConnectionRecord() {
         throw BagFormatException("Error reading CONNECTION header");
     M_string& fields = *header.getValues();
 
-    if (!isOp(fields, OP_CONNECTION))
+    if (!isOp(fields, OP_CONNECTION))//校验是否时connection 
         throw BagFormatException("Expected CONNECTION op not found");
 
     uint32_t id;
-    readField(fields, CONNECTION_FIELD_NAME, true, &id);
+    readField(fields, CONNECTION_FIELD_NAME, true, &id);//读取这个connid
     string topic;
-    readField(fields, TOPIC_FIELD_NAME,      true, topic);
+    readField(fields, TOPIC_FIELD_NAME,      true, topic);//读取topic名称
 
-    ros::Header connection_header;
+    ros::Header connection_header;//读取connection的数据部分
     if (!encryptor_->readEncryptedHeader(boost::bind(&Bag::readHeader, this, _1), connection_header, header_buffer_, file_))
         throw BagFormatException("Error reading connection header");
 
     // If this is a new connection, update connections
+    //通过数据构建
     map<uint32_t, ConnectionInfo*>::iterator key = connections_.find(id);
     if (key == connections_.end()) {
         ConnectionInfo* connection_info = new ConnectionInfo();
@@ -749,7 +760,7 @@ void Bag::readConnectionRecord() {
         connection_info->msg_def  = (*connection_info->header)["message_definition"];
         connection_info->datatype = (*connection_info->header)["type"];
         connection_info->md5sum   = (*connection_info->header)["md5sum"];
-        connections_[id] = connection_info;
+        connections_[id] = connection_info;//构造出connections map
 
         CONSOLE_BRIDGE_logDebug("Read CONNECTION: topic=%s id=%d", topic.c_str(), id);
     }
@@ -758,6 +769,7 @@ void Bag::readConnectionRecord() {
 void Bag::readMessageDefinitionRecord102() {
     ros::Header header;
     uint32_t data_size;
+    //读取header并读取header后的数据size
     if (!readHeader(header) || !readDataLength(data_size))
         throw BagFormatException("Error reading message definition header");
     M_string& fields = *header.getValues();
@@ -971,16 +983,18 @@ void Bag::readChunkInfoRecord() {
     // Read a CHUNK_INFO header
     ros::Header header;
     uint32_t data_size;
+    //先读取header，在读取数据长度
     if (!readHeader(header) || !readDataLength(data_size))
         throw BagFormatException("Error reading CHUNK_INFO record header");
     M_string& fields = *header.getValues();
-    if (!isOp(fields, OP_CHUNK_INFO))
+    if (!isOp(fields, OP_CHUNK_INFO))//校验chunkinfo record
         throw BagFormatException("Expected CHUNK_INFO op not found");
 
     // Check that the chunk info version is current
+    //检测chunk info的版本号
     uint32_t chunk_info_version;
     readField(fields, VER_FIELD_NAME, true, &chunk_info_version);
-    if (chunk_info_version != CHUNK_INFO_VERSION)
+    if (chunk_info_version != CHUNK_INFO_VERSION)//这个貌似没做兼容处理
         throw BagFormatException((format("Expected CHUNK_INFO version %1%, read %2%") % CHUNK_INFO_VERSION % chunk_info_version).str());
 
     // Read the chunk position, timestamp, and topic count fields
@@ -1004,10 +1018,10 @@ void Bag::readChunkInfoRecord() {
 
         CONSOLE_BRIDGE_logDebug("  %d: %d messages", connection_id, connection_count);
 
-        chunk_info.connection_counts[connection_id] = connection_count;
+        chunk_info.connection_counts[connection_id] = connection_count;//当前chunk中连接的数量
     }
 
-    chunks_.push_back(chunk_info);
+    chunks_.push_back(chunk_info);//形成数据结构chunks_
 }
 
 // Record I/O
@@ -1103,14 +1117,17 @@ void Bag::readMessageDataHeaderFromBuffer(Buffer& buffer, uint32_t offset, ros::
 
 bool Bag::readHeader(ros::Header& header) const {
     // Read the header length
+    //读取header长度
     uint32_t header_len;
     read((char*) &header_len, 4);
 
     // Read the header
+    //将header内容读取到buffer
     header_buffer_.setSize(header_len);
     read((char*) header_buffer_.getData(), header_len);
 
     // Parse the header
+    //开始解释header到map中
     string error_msg;
     bool parsed = header.parse(header_buffer_.getData(), header_len, error_msg);
     if (!parsed)

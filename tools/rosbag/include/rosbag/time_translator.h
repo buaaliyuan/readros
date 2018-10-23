@@ -41,6 +41,7 @@
 namespace rosbag {
 
 //! Helper class for translating between two times
+//辅助类，用于翻译两个时间
 /*!
  * The time translator can be configured with a Real start time, a
  * Translated start time, and a time scale.
@@ -64,9 +65,9 @@ public:
     ros::Time translate(ros::Time const& t);
 
 private:
-    double    time_scale_;
-    ros::Time real_start_;
-    ros::Time translated_start_;
+    double    time_scale_;//时间比例
+    ros::Time real_start_;//真实起始时间
+    ros::Time translated_start_;//转化时的起始时间呢
 };
 
 } // namespace rosbag

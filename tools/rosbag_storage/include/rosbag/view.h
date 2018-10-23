@@ -86,12 +86,13 @@ public:
     private:
         View* view_;
         std::vector<ViewIterHelper> iters_;
-        uint32_t view_revision_;
+        uint32_t view_revision_;//view版本？
         mutable MessageInstance* message_instance_;
     };
 
     typedef iterator const_iterator;
-
+    
+    //定义一个函数对象，具体是什么意思？
     struct TrueQuery {
     	bool operator()(ConnectionInfo const*) const { return true; };
     };
@@ -129,6 +130,7 @@ public:
     uint32_t size();
 
     //! Add a query to a view
+    //! 添加一个查询到view中，这个view的具体作用是什么？
     /*!
      * param bag        The bag file on which to run this query
      * param start_time The beginning of the time range for the query
@@ -165,7 +167,7 @@ private:
 
 protected:
     std::vector<MessageRange*> ranges_;
-    std::vector<BagQuery*>     queries_;
+    std::vector<BagQuery*>     queries_;//
     uint32_t                   view_revision_;
 
     uint32_t size_cache_;

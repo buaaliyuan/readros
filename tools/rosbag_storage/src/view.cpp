@@ -80,8 +80,8 @@ void View::iterator::populate() {
         if (range->begin != range->end)
             iters_.push_back(ViewIterHelper(range->begin, range));
 
-    std::sort(iters_.begin(), iters_.end(), ViewIterHelperCompare());
-    view_revision_ = view_->view_revision_;
+    std::sort(iters_.begin(), iters_.end(), ViewIterHelperCompare());//将多个bag排序
+    view_revision_ = view_->view_revision_;//???
 }
 
 void View::iterator::populateSeek(multiset<IndexEntry>::const_iterator iter) {
@@ -164,6 +164,10 @@ MessageInstance& View::iterator::dereference() const {
     return *message_instance_;
 }
 
+
+
+
+
 // View
 
 View::View(bool const& reduce_overlap) : view_revision_(0), size_cache_(0), size_revision_(0), reduce_overlap_(reduce_overlap) { }
@@ -184,6 +188,7 @@ View::~View() {
 }
 
 
+//找到最小的起始时间
 ros::Time View::getBeginTime()
 {
   update();
@@ -246,14 +251,14 @@ uint32_t View::size() {
 }
 
 void View::addQuery(Bag const& bag, ros::Time const& start_time, ros::Time const& end_time) {
-    if ((bag.getMode() & bagmode::Read) != bagmode::Read)
+    if ((bag.getMode() & bagmode::Read) != bagmode::Read)//bag的模式必须是读模式
         throw BagException("Bag not opened for reading");
 
     boost::function<bool(ConnectionInfo const*)> query = TrueQuery();
 
     queries_.push_back(new BagQuery(&bag, Query(query, start_time, end_time), bag.bag_revision_));
 
-    updateQueries(queries_.back());
+    updateQueries(queries_.back());//更新这个连接的时间范围
 }
 
 void View::addQuery(Bag const& bag, boost::function<bool(ConnectionInfo const*)> query, ros::Time const& start_time, ros::Time const& end_time) {
@@ -281,12 +286,14 @@ void View::updateQueries(BagQuery* q) {
         multiset<IndexEntry> const& index = j->second;
 
         // lower_bound/upper_bound do a binary search to find the appropriate range of Index Entries given our time range
+        //区间搜索
         IndexEntry start_time_lookup_entry = { q->query.getStartTime(), 0, 0 };
         IndexEntry end_time_lookup_entry   = { q->query.getEndTime()  , 0, 0 };
         std::multiset<IndexEntry>::const_iterator begin = index.lower_bound(start_time_lookup_entry);
         std::multiset<IndexEntry>::const_iterator end   = index.upper_bound(end_time_lookup_entry);
 	    
         // Make sure we are at the right beginning
+        //检索到正确的起始
         while (begin != index.begin() && begin->time >= q->query.getStartTime())
         {
           begin--;
@@ -312,14 +319,17 @@ void View::updateQueries(BagQuery* q) {
                     break;
                 }
             }
+            //没有找到则加入range
             if (!found)
                 ranges_.push_back(new MessageRange(begin, end, connection, q));
         }
     }
 
-    view_revision_++;
+    view_revision_++;//???
 }
 
+
+//啥意思
 void View::update() {
     foreach(BagQuery* query, queries_) {
         if (query->bag->bag_revision_ != query->bag_revision) {

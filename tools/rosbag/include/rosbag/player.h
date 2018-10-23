@@ -103,6 +103,7 @@ struct ROSBAG_DECL PlayerOptions
 
 
 //! PRIVATE. A helper class to track relevant state for publishing time
+//一个辅助类用来记录发布时间的相关状态
 class ROSBAG_DECL TimePublisher {
 public:
     /*! Create a time publisher
@@ -121,6 +122,7 @@ public:
     void setWCHorizon(const ros::WallTime& horizon);
 
     /*! Set the current time */
+    //设置当前时间
     void setTime(const ros::Time& time);
 
     /*! Get the current time */
@@ -214,8 +216,8 @@ private:
 
     ros::WallTime paused_time_;
 
-    std::vector<boost::shared_ptr<Bag> >  bags_;
-    PublisherMap publishers_;
+    std::vector<boost::shared_ptr<Bag> >  bags_;//所有打开的bag文件
+    PublisherMap publishers_;//所有发布者
 
     // Terminal
     bool    terminal_modified_;
@@ -231,8 +233,8 @@ private:
     TimeTranslator time_translator_;
     TimePublisher time_publisher_;
 
-    ros::Time start_time_;
-    ros::Duration bag_length_;
+    ros::Time start_time_;//view的起始时间
+    ros::Duration bag_length_;//bag的持续时间
 };
 
 

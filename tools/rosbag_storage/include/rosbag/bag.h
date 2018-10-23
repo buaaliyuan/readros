@@ -317,16 +317,16 @@ private:
 private:
     BagMode             mode_;//读写模式
     mutable ChunkedFile file_;//实际的文件
-    int                 version_;
+    int                 version_;//读取的版本号
     CompressionType     compression_;//压缩类型
     uint32_t            chunk_threshold_;//每个chunk的最大size
     uint32_t            bag_revision_;//??
 
     uint64_t file_size_;//文件大小
     uint64_t file_header_pos_;//存储文件头位置
-    uint64_t index_data_pos_;
-    uint32_t connection_count_;
-    uint32_t chunk_count_;
+    uint64_t index_data_pos_;//索引数据的位置
+    uint32_t connection_count_;//bag中connection的数量
+    uint32_t chunk_count_;//bag中chunk的数量
     
     // Current chunk
     //当前记录的chunk信息
@@ -340,7 +340,7 @@ private:
 
     std::vector<ChunkInfo>                         chunks_;
 
-    std::map<uint32_t, std::multiset<IndexEntry> > connection_indexes_;
+    std::map<uint32_t, std::multiset<IndexEntry> > connection_indexes_;//由connectionid索引这个消息
     std::map<uint32_t, std::multiset<IndexEntry> > curr_chunk_connection_indexes_;
 
     mutable Buffer   header_buffer_;           //!< reusable buffer in which to assemble the record header before writing to file
@@ -602,17 +602,18 @@ void Bag::doWrite(std::string const& topic, ros::Time const& time, T const& msg,
             }
             connections_[conn_id] = connection_info;//添加查找索引
             // No need to encrypt connection records in chunks
-            //连接信息写入chunkdata
+            //连接信息写入chunkdata，但是只是在第一次接收到这条消息的时候，但是为什么这么做呢？
             writeConnectionRecord(connection_info, false);
             appendConnectionRecordToBuffer(outgoing_chunk_buffer_, connection_info);
         }
 
         // Add to topic indexes
         IndexEntry index_entry;
-        index_entry.time      = time;
-        index_entry.chunk_pos = curr_chunk_info_.pos;//当前消息所在的chunk
+        index_entry.time      = time;//消息时间
+        //做了一个类似的两级索引，先确定chunk的位置，在确定消息在chunk内部的位置
+        index_entry.chunk_pos = curr_chunk_info_.pos;//当前消息所在的chunk位置的偏移
         index_entry.offset    = getChunkOffset();//当前消息所在chunk中的相对偏移
-		//按照连接的id将消息的索引进行收集
+		//按照连接的id将消息的索引进行收集，最后写入文件的最后
         std::multiset<IndexEntry>& chunk_connection_index = curr_chunk_connection_indexes_[connection_info->id];
         //将数据按照connection_info的id来存储，存储使用set，重载的<号可以自动排序
         chunk_connection_index.insert(chunk_connection_index.end(), index_entry);
@@ -647,8 +648,8 @@ void Bag::writeMessageDataRecord(uint32_t conn_id, ros::Time const& time, T cons
     //首先创建一个map数据结构存储这个record的一些属性
     ros::M_string header;
     header[OP_FIELD_NAME]         = toHeaderString(&OP_MSG_DATA);//message data
-    header[CONNECTION_FIELD_NAME] = toHeaderString(&conn_id);
-    header[TIME_FIELD_NAME]       = toHeaderString(&time);
+    header[CONNECTION_FIELD_NAME] = toHeaderString(&conn_id);//这条消息对应的connid
+    header[TIME_FIELD_NAME]       = toHeaderString(&time);//这条消息的时间
 
     // Assemble message in memory first, because we need to write its length
     //计算序列化后消息的长度
